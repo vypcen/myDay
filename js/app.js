@@ -124,6 +124,12 @@ function src(b){return b.localUrl||(b.fid?fileURL(b.fid):"")}
 function setImg(im,b){im.dataset.fid=b.fid||"";const u=src(b);if(u)im.src=u}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 
+/* ---------- visible viewport (keyboard on phones) ---------- */
+const VV=()=>{const v=window.visualViewport;return v?{h:v.height,t:v.offsetTop}:{h:innerHeight,t:0}};
+function syncVV(){const v=VV(),r=document.documentElement.style;r.setProperty("--vvh",v.h+"px");r.setProperty("--vvt",v.t+"px")}
+if(window.visualViewport){visualViewport.addEventListener("resize",syncVV);visualViewport.addEventListener("scroll",syncVV)}
+addEventListener("resize",syncVV);syncVV();
+
 /* ---------- workspace: view ---------- */
 const board=$("board"),plane=$("plane");
 function applyView(){const V=W.V;plane.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.z})`;
@@ -255,8 +261,14 @@ function attachDrag(n,b){
     if(e.shiftKey&&e.pointerType==="mouse"&&!t.closest("input,textarea")){e.preventDefault();e.stopPropagation();const on=!W.multi.has(b.id);for(const x of groupOf(b))if(W.multi.has(x.id)!==on)toggleSel(x.id);return}
     let inGroup=W.multi.has(b.id)&&W.multi.size>1;
     if(!inGroup){const gm=groupOf(b).filter(x=>!x.hidden);if(gm.length>1){selectMany(gm.map(x=>x.id));inGroup=true}else select(b.id)}
-    if(t.closest("input,textarea,button,a,.wave"))return;
     const touch=e.pointerType!=="mouse";
+    if(t.closest("input,textarea,button,a,.wave")){
+      // На телефоне заметка почти целиком — поле ввода: долгое нажатие на неактивное поле открывает меню элемента, короткое — начинает ввод.
+      if(touch&&t.matches("textarea,input[type=text]")&&document.activeElement!==t){
+        lpStart(e,(x,y)=>{t.blur();(inGroup?groupMenu:itemMenu)(x,y,b)});
+        const mv0=ev=>lpMove(ev),up0=()=>{lpCancel();n.removeEventListener("pointermove",mv0);n.removeEventListener("pointerup",up0);n.removeEventListener("pointercancel",up0)};
+        n.addEventListener("pointermove",mv0);n.addEventListener("pointerup",up0);n.addEventListener("pointercancel",up0)}
+      return}
     if(b.locked){if(touch){lpStart(e,(x,y)=>itemMenu(x,y,b));const mv0=ev=>lpMove(ev),up0=ev=>{lpCancel();n.removeEventListener("pointermove",mv0);n.removeEventListener("pointerup",up0);n.removeEventListener("pointercancel",up0)};
       n.addEventListener("pointermove",mv0);n.addEventListener("pointerup",up0);n.addEventListener("pointercancel",up0)}return}
     const resize=t.classList.contains("rz");
@@ -359,7 +371,13 @@ $("zoomv").onclick=()=>{zoomCenter(1/W.V.z)};$("zFit").onclick=fit;
 
 /* ---------- context menu ---------- */
 let menu=null;
-function closeMenu(){if(menu){menu.remove();menu=null}}
+function closeMenu(){if(menu){menu.remove();menu=null}dropSheetBg()}
+// На телефонах меню и панели открываются снизу листом во всю ширину, с прокруткой — не вылезают за экран.
+const isPhone=()=>innerWidth<=600||innerHeight<=500;
+function sheetify(node){if(!isPhone())return false;node.classList.add("sheet");node.prepend(el("div","grab"));
+  if(!$("sheetbg")){const bg=el("div","sheetbg");bg.id="sheetbg";bg.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();closeMenu();closePop()});document.body.append(bg)}
+  return true}
+function dropSheetBg(){if(!menu&&!$("pop"))$("sheetbg")?.remove()}
 function openMenu(cx,cy,entries){
   closeMenu();menu=el("div","ctx");menu.setAttribute("role","menu");
   entries.forEach(en=>{
@@ -374,8 +392,9 @@ function openMenu(cx,cy,entries){
     else menu.append(bt);
   });
   document.body.append(menu);
-  const r=menu.getBoundingClientRect();
-  menu.style.left=Math.max(8,Math.min(cx,innerWidth-r.width-8))+"px";menu.style.top=Math.max(8,Math.min(cy,innerHeight-r.height-8))+"px";
+  if(sheetify(menu))return;
+  const r=menu.getBoundingClientRect(),vh=VV().h;
+  menu.style.left=Math.max(8,Math.min(cx,innerWidth-r.width-8))+"px";menu.style.top=Math.max(8,Math.min(cy,vh-r.height-8))+"px";
   const f=menu.querySelector("button");f&&f.focus({preventScroll:true});
 }
 const COARSE=matchMedia("(pointer:coarse)").matches;
@@ -949,7 +968,7 @@ function openStylePop(cx,cy,list){
   const picker=(id,val,fn)=>{const i=el("input","cpick");i.type="color";i.id=id;i.value=/^#[0-9a-f]{6}$/i.test(val||"")?val:"#ffd166";i.title="Свой цвет";i.setAttribute("aria-label","Свой цвет");
     i.oninput=()=>fn(i.value,false);i.onchange=()=>{fn(i.value,true);rnd()};return i};
   const rnd=()=>{
-    const st=ref.st||{},f=curFill(ref);p.textContent="";
+    const st=ref.st||{},f=curFill(ref);const sc=p.scrollTop;p.textContent="";if(p.classList.contains("sheet"))p.append(el("div","grab"));setTimeout(()=>{p.scrollTop=sc},0);
     const h=el("div","sethead");h.append(el("b",null,"Оформление"+(list.length>1?" · "+list.length:"")));const x=el("button","mdel","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closePop;h.append(x);p.append(h);
     p.append(el("div","mlabel","Фон"));
     const fr=el("div","swatches");
@@ -971,7 +990,8 @@ function openStylePop(cx,cy,list){
     r.oninput=()=>{ov.textContent=r.value+"%";setStyle(list,{op:+r.value>=100?null:+r.value/100},false)};r.onchange=()=>{scheduleSave(S.open);histBoundary(S.open)};
     ol.append(top,r);p.append(ol);
     const rs=el("div","row");const rb=el("button","btn","Сбросить оформление");rb.onclick=()=>{setStyle(list,{bg:"",bw:null,bc:null,bs:null,r:null,sh:null,op:null});rnd()};rs.append(rb);p.append(rs);
-    const pr=p.getBoundingClientRect();p.style.left=Math.max(8,Math.min(cx,innerWidth-pr.width-8))+"px";p.style.top=Math.max(8,Math.min(cy,innerHeight-pr.height-8))+"px";
+    if(p.classList.contains("sheet")||sheetify(p))return;
+    const pr=p.getBoundingClientRect();p.style.left=Math.max(8,Math.min(cx,innerWidth-pr.width-8))+"px";p.style.top=Math.max(8,Math.min(cy,VV().h-pr.height-8))+"px";
   };
   rnd();
 }
@@ -1151,12 +1171,12 @@ function streak(id,k){let n=0;const d=parse(k);for(;;){const v=S.days[key(d)];if
 function renderDayChip(){const b=$("dayBtn");if(!b||!S.open)return;const d=S.days[S.open]||{};b.textContent="";
   b.append(el("span","dmood",d.mood?MOODS[d.mood-1].e:"☺"));if(d.tag&&TAGS[d.tag]){const t=el("i","dtag");t.style.background=TAGS[d.tag];b.append(t)}
   const n=d.habits?S.habits.filter(h=>d.habits[h.id]).length:0;if(n)b.append(el("span","dhab",n+"/"+S.habits.length));
-  b.classList.toggle("set",!!(d.mood||d.tag||n))}
-function closePop(){$("pop")?.remove()}
+  b.classList.toggle("marked",!!(d.mood||d.tag||n))}
+function closePop(){$("pop")?.remove();dropSheetBg()}
 function openPop(){
   if($("pop")){closePop();return}closeMenu();
   const k=S.open,p=el("div","pop");p.id="pop";p.setAttribute("role","dialog");p.setAttribute("aria-label","Отметки дня");document.body.append(p);
-  const rnd=()=>{const d=S.days[k]||{};p.textContent="";
+  const rnd=()=>{const d=S.days[k]||{};const sc=p.scrollTop;p.textContent="";if(p.classList.contains("sheet"))p.append(el("div","grab"));setTimeout(()=>{p.scrollTop=sc},0);
     p.append(el("div","mlabel","Настроение"));const mr=el("div","moods");
     MOODS.forEach((m,i)=>{const b=el("button",d.mood===i+1?"on":"",m.e);b.title=m.n;b.setAttribute("aria-label",m.n);b.onclick=()=>{const dd=day(k);dd.mood=dd.mood===i+1?0:i+1;if(!dd.mood)delete dd.mood;scheduleSave(k);renderDayChip();rnd()};mr.append(b)});p.append(mr);
     p.append(el("div","mlabel","Цвет дня"));const tr=el("div","swatches");
@@ -1172,6 +1192,7 @@ function openPop(){
       r.append(c,l,s2,x);p.append(r)});
     const f=el("form","hadd");const i=el("input","inp");i.id="habitNew";i.placeholder="Новая привычка";i.maxLength=40;const ab=el("button","btn","Добавить");ab.type="submit";f.append(i,ab);
     f.onsubmit=e=>{e.preventDefault();const v=i.value.trim();if(!v)return;S.habits=[...S.habits,{id:uid(),n:v}];store.put("kv","habits",S.habits);rnd();setTimeout(()=>$("habitNew")?.focus(),0)};p.append(f);
+    if(p.classList.contains("sheet")||sheetify(p))return;
     const r=$("dayBtn").getBoundingClientRect(),pr=p.getBoundingClientRect();p.style.top=(r.bottom+6)+"px";p.style.left=Math.max(8,Math.min(r.left,innerWidth-pr.width-8))+"px";
   };rnd();
 }
@@ -1360,7 +1381,17 @@ function hideToast(){clearTimeout(toastT);if(toastEl){toastEl.remove();toastEl=n
 $("prev").onclick=()=>{S.m--;if(S.m<0){S.m=11;S.y--}renderCal()};
 $("next").onclick=()=>{S.m++;if(S.m>11){S.m=0;S.y++}renderCal()};
 $("today").onclick=()=>{const t=new Date();S.y=t.getFullYear();S.m=t.getMonth();renderCal()};
-$("back").onclick=closeDay;$("dPrev").onclick=()=>shiftDay(-1);$("dNext").onclick=()=>shiftDay(1);
+$("back").onclick=closeDay;
+$("wsMore").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();openMenu(r.right-240,r.bottom+6,[
+  {ic:"⌕",label:"Поиск",run:openSearch},
+  {ic:"☑",label:"Незавершённые задачи",run:openTasks},
+  {ic:"☰",label:"Слои",run:toggleLayers},
+  {ic:"‹",label:"Предыдущий день",run:()=>shiftDay(-1)},
+  {ic:"›",label:"Следующий день",run:()=>shiftDay(1)},
+  "-",
+  {ic:"Аа",label:"Оформление приложения",run:openSettings},
+  {ic:"⛁",label:"Данные и бэкап",run:openBackup},
+  ...(LOCK.on?[{ic:"🔒",label:"Заблокировать",run:()=>lockNow()}]:[])])};$("dPrev").onclick=()=>shiftDay(-1);$("dNext").onclick=()=>shiftDay(1);
 addEventListener("keydown",e=>{
   if(document.body.classList.contains("locked"))return;
   const ae=document.activeElement,typing=/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable;

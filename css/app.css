@@ -325,7 +325,7 @@ button,.cell,.lrow{touch-action:manipulation}
 /* ----- day chip & popover ----- */
 .daybtn{display:inline-flex;align-items:center;gap:6px;min-width:40px;height:36px;padding:0 9px;justify-content:center;flex:none}
 .daybtn .dmood{font-size:17px;line-height:1;opacity:.55}
-.daybtn.set .dmood{opacity:1}
+.daybtn.marked .dmood{opacity:1}
 .daybtn .dtag{width:10px;height:10px;border-radius:50%}
 .daybtn .dhab{font:600 11px var(--f-mono);color:var(--muted)}
 .pop{position:fixed;z-index:62;width:min(320px,calc(100vw - 16px));max-height:calc(100vh - 80px);overflow-y:auto;background:var(--sheet);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px var(--shadow);padding:6px 6px 10px}
@@ -492,3 +492,65 @@ body.locked{overflow:hidden}
   .nav{gap:5px}
   .dock{gap:5px}
 }
+
+/* ----- phones: bottom sheets, bars that always fit ----- */
+.ctx{max-height:calc(100vh - 16px);max-height:calc(var(--vvh,100dvh) - 16px)}
+.pop{max-height:calc(var(--vvh,100dvh) - 80px)}
+.sheetbg{position:fixed;inset:0;z-index:59;background:rgba(10,12,20,.38);animation:fade .15s ease-out}
+@keyframes fade{from{opacity:0}}
+@keyframes sheetup{from{transform:translateY(24px);opacity:.5}}
+.ctx.sheet,.pop.sheet{position:fixed;left:0 !important;right:0;top:auto !important;bottom:calc(100% - var(--vvt,0px) - var(--vvh,100dvh));width:auto;min-width:0;
+  max-height:min(76dvh,calc(var(--vvh,100dvh) - 48px));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;box-shadow:0 -12px 40px var(--shadow);
+  padding:0 max(10px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));animation:sheetup .18s ease-out}
+.ctx.sheet{display:flex;flex-direction:column}
+.grab{position:sticky;top:0;z-index:1;flex:none;height:22px;margin:0 -10px;background:var(--sheet);display:block}
+.grab::before{content:"";position:absolute;left:50%;top:8px;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--line)}
+.ctx.sheet .fgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ctx.sheet button{min-height:44px}
+.ctx.sheet .swatches,.pop.sheet .swatches{gap:10px}
+.ctx.sheet .swatches button,.pop.sheet .swatches button{width:32px;height:32px}
+.pop.sheet .sseg{margin:2px 0 6px}
+@media (prefers-reduced-motion:reduce){.ctx.sheet,.pop.sheet,.sheetbg{animation:none}}
+
+/* workspace keeps to the visible area (keyboard open) */
+.ws{top:var(--vvt,0px);bottom:auto;height:var(--vvh,100%)}
+.set{top:var(--vvt,0px);bottom:auto;height:var(--vvh,100%)}
+/* top bars: never cut off — they fit, and scroll sideways if something still doesn't */
+.wsbar,.nav{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.wsbar::-webkit-scrollbar,.nav::-webkit-scrollbar{display:none}
+.wsbar>.btn,.nav>.btn{flex:none}
+#wsMore{display:none}
+.app{padding-top:max(20px,env(safe-area-inset-top,0px))}
+@media (max-width:600px),(max-height:500px){
+  #wsMore{display:grid}
+  .wsbar #srchOpen2,.wsbar #bkOpen2,.wsbar #setOpen2,.wsbar .status{display:none}
+  .wsbar{gap:6px}
+  .wsbar .btn.icon{width:38px;height:38px}
+  .wsbar .daybtn{height:38px;min-width:38px;padding:0 6px}
+  .wsbar .daybtn .dhab{display:none}
+  .wshead{min-width:72px}
+  .wstitle{font-size:16px}
+  .nav{flex-wrap:nowrap}
+}
+@media (max-width:420px){
+  .nav .btn.icon{width:36px;height:36px}
+  .nav #today{width:36px;height:36px;padding:0;font-size:0;display:grid;place-items:center}
+  .nav #today::after{content:"◉";font-size:14px}
+  .nav{gap:4px}
+  .month h1{font-size:calc(26px * var(--k-display))}
+}
+@media (max-height:500px) and (orientation:landscape){
+  .wsbar{padding-top:calc(4px + env(safe-area-inset-top,0px));padding-bottom:4px}
+  .wsbar .btn{height:34px}
+  .wsdate{display:none}
+  .app{padding-top:max(10px,env(safe-area-inset-top,0px));gap:8px}
+  .month h1{font-size:calc(24px * var(--k-display))}
+  .grid{grid-template-rows:repeat(6,minmax(44px,1fr))}
+  .dock{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:360px){.wsbar #dPrev,.wsbar #dNext{display:none}}
+@media (pointer:coarse){.it textarea.txt:not(:focus),.it .ti input[type=text]:not(:focus){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}}
+/* calendar page scrolls when it doesn't fit (landscape phones, banners) instead of clipping rows */
+.app{height:auto;min-height:100%}
+.cal{flex:1 0 auto}
