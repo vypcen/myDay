@@ -121,11 +121,6 @@ textarea.txt{display:block;width:100%;border:0;resize:none;background:transparen
 .uploading::after{content:"Загружаю…";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--ink);color:var(--paper);font-size:12px;padding:3px 9px;border-radius:99px}
 .note{font-size:11.5px;color:var(--muted);padding:4px 6px 2px}
 
-.bhint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);pointer-events:none;max-width:min(420px,calc(100% - 32px));
-  background:color-mix(in srgb,var(--paper) 80%,transparent);padding:18px 20px;border-radius:14px;border:1.5px dashed var(--line)}
-.bhint strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
-.bhint ul{margin:0;padding:0;list-style:none;font-size:13.5px;line-height:1.8}
-.bhint kbd{font:600 11.5px var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--sheet)}
 
 .dock{position:absolute;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;align-items:center;z-index:2}
 .dock .grp{display:flex;align-items:center;background:var(--sheet);border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px var(--shadow)}
@@ -274,3 +269,41 @@ textarea.txt{display:block;width:100%;border:0;resize:none;background:transparen
 .meter{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
 .meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .meter i.m0,.meter i.m1{background:var(--danger)}.meter i.m2{background:#e0a100}.meter i.m3,.meter i.m4{background:#2e9d5b}
+
+/* ----- touch screens ----- */
+html{-webkit-tap-highlight-color:transparent}
+button,.cell,.lrow{touch-action:manipulation}
+.board,.it img,.lic img,.grip{-webkit-touch-callout:none}
+.grid{touch-action:pan-y}
+.llist{touch-action:pan-y;overscroll-behavior:contain}
+.lgrab{flex:none;width:20px;align-self:stretch;display:grid;place-items:center;color:var(--muted);cursor:grab;touch-action:none;font-size:13px;letter-spacing:-2px;opacity:.6}
+.lrow:hover .lgrab{opacity:1}
+.lrow.lifting{background:var(--accent-soft);box-shadow:0 6px 16px var(--shadow)}
+@media (pointer:coarse){
+  .grip{height:30px;font-size:10.5px}
+  .rz{width:30px;height:30px;opacity:.55}
+  .ti{gap:11px}
+  .ti input[type=checkbox]{width:22px;height:22px}
+  .ti input[type=text]{padding:8px 0}
+  .ti .x{opacity:.5;font-size:15px;padding:8px 6px}
+  .addi{padding:10px 0 4px;font-size:15px}
+  .cap{padding:10px 4px 4px}
+  .ctx{min-width:240px}
+  .ctx button{padding:12px;font-size:15px}
+  .ctx .fgrid button{padding:10px 8px}
+  .ctx .sizes button{padding:11px 0}
+  .swatches{gap:10px;padding:8px 12px}
+  .swatches button{width:30px;height:30px}
+  .dock .grp button{height:44px;min-width:44px}
+  #zoomv{min-width:58px}
+  .fab{width:54px;height:54px}
+  .btn.icon{width:42px;height:42px}
+  .lrow{padding:7px 6px}
+  .lrow button{width:36px;height:36px;font-size:14px}
+  .lgrab{width:30px;opacity:.9;font-size:15px}
+  .lhead button{width:36px;height:36px}
+  .play{width:48px;height:48px}
+  .wave{height:38px}
+  .fact{gap:16px}.fact button,.fact a{padding:6px 0;font-size:14px}
+  .pal,.pat,.fopt{min-height:44px}
+}

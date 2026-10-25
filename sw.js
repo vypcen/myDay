@@ -1,5 +1,5 @@
 // Офлайн-оболочка приложения. Кэширует только файлы самого приложения — пользовательские данные сюда не попадают.
-const VERSION = "tetrad-v1.0.0";
+const VERSION = "tetrad-v1.1.0";
 const SHELL = [
   "./", "./manifest.webmanifest",
   "./css/app.css", "./css/fonts.css",

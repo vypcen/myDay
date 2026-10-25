@@ -2,6 +2,27 @@
 import { store } from "./db.js";
 import { snapshot, backupToBlob, backupToFolder, readBackup, restore, setBackupPassword, getBackupKey, folderSupported, folderState, pickFolder, listFolderBackups } from "./backup.js";
 
+/* ---------- touch helpers ---------- */
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+if(IOS){const m=document.querySelector('meta[name="viewport"]');if(m&&!/maximum-scale/.test(m.content))m.content+=",maximum-scale=1"} // no auto-zoom when a field gets focus
+let lastTouch=0;
+addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse")lastTouch=Date.now()},true);
+const recentTouch=()=>Date.now()-lastTouch<1200;
+// Long press: fires after 480 ms if the finger stays within 10 px.
+const LP={t:null,sx:0,sy:0,fired:false,moved:false};
+function lpStart(e,fire){lpCancel();LP.fired=false;LP.moved=false;if(e.pointerType==="mouse")return;LP.sx=e.clientX;LP.sy=e.clientY;
+  LP.t=setTimeout(()=>{LP.t=null;LP.fired=true;clickBlock=Date.now()+8000;try{navigator.vibrate&&navigator.vibrate(12)}catch(_){}fire(LP.sx,LP.sy)},480)}
+function lpMove(e){if(Math.hypot(e.clientX-LP.sx,e.clientY-LP.sy)>10){LP.moved=true;lpCancel()}}
+function lpCancel(){if(LP.t){clearTimeout(LP.t);LP.t=null}}
+// The finger is still down when the menu opens: swallow the click that its release would produce.
+let clickBlock=0;
+const blockAfterRelease=()=>{if(clickBlock>Date.now())clickBlock=Date.now()+400};
+addEventListener("pointerup",blockAfterRelease,true);addEventListener("pointercancel",blockAfterRelease,true);
+for(const t of ["click","mousedown","mouseup"])addEventListener(t,e=>{if(Date.now()<clickBlock){e.stopImmediatePropagation();e.preventDefault()}},true);
+let lastTap={t:0,x:0,y:0,id:null};
+function isDoubleTap(e,id){const n=Date.now(),d=n-lastTap.t<320&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<30&&lastTap.id===id;
+  lastTap=d?{t:0,x:0,y:0,id:null}:{t:n,x:e.clientX,y:e.clientY,id};return d}
+
 
 const MN=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const MG=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
@@ -21,7 +42,7 @@ function examples(){
   const t=key(now),d1=new Date(now);d1.setDate(d1.getDate()+2);const d2=new Date(now);d2.setDate(d2.getDate()-3);
   return {
     [t]:{title:"Пример · План MVP",blocks:[
-      {id:uid(),type:"text",x:40,y:40,w:300,color:"y",text:"Это пример пространства дня.\nПравый клик по фону — добавить текст, задачи, картинку или файл."},
+      {id:uid(),type:"text",x:40,y:40,w:300,color:"y",text:"Это пример пространства дня.\nПравый клик или долгое нажатие на фон — добавить заметку, задачи, картинку, аудио или файл."},
       {id:uid(),type:"todo",x:380,y:60,w:280,items:[{id:uid(),text:"Сетка календаря",done:true},{id:uid(),text:"Свободный холст",done:true},{id:uid(),text:"Вложения",done:false}]}]},
     [key(d1)]:{title:"Пример · Встреча с дизайнером",blocks:[{id:uid(),type:"text",x:40,y:40,w:280,text:"Обсудить тёмную тему и мобильную версию."}]},
     [key(d2)]:{title:"Пример · Идеи",blocks:[{id:uid(),type:"todo",x:40,y:40,w:260,items:[{id:uid(),text:"Поиск по заметкам",done:false}]}]}
@@ -135,7 +156,7 @@ function renderWs(){
   data.blocks.forEach(b=>plane.append(renderItem(b)));
   renderLayers();
   plane.querySelectorAll("textarea.txt").forEach(grow);
-  $("bhint").hidden=data.blocks.length>0;
+  
 }
 $("wsTitle").oninput=e=>{day(S.open).title=e.target.value;scheduleSave(S.open)};
 
@@ -143,7 +164,7 @@ function grow(t){t.style.height="auto";t.style.height=t.scrollHeight+"px"}
 function findB(id){return (S.days[S.open]?.blocks||[]).find(b=>b.id===id)}
 function nodeOf(id){return plane.querySelector(`.it[data-id="${id}"]`)}
 function rerender(b,focusId){const o=nodeOf(b.id),n=renderItem(b);if(o)o.replaceWith(n);else plane.append(n);n.querySelectorAll("textarea.txt").forEach(grow);
-  renderLayers();if(focusId){const f=document.getElementById(focusId);f&&f.focus()}$("bhint").hidden=!!(S.days[S.open]?.blocks||[]).length}
+  renderLayers();if(focusId){const f=document.getElementById(focusId);f&&f.focus()}}
 function select(id){W.sel=id;document.querySelectorAll(".lrow").forEach(r=>r.classList.toggle("sel",r.dataset.id===id));plane.querySelectorAll(".it.sel").forEach(n=>n.classList.remove("sel"));if(id){const n=nodeOf(id);n&&n.classList.add("sel")}}
 
 /* ---------- workspace: items ---------- */
@@ -212,26 +233,30 @@ function attachDrag(n,b){
     closeMenu();select(b.id);
     const t=e.target;
     if(t.closest("input,textarea,button,a,.wave"))return;
-    if(b.locked)return;
+    const touch=e.pointerType!=="mouse";
+    if(b.locked){if(touch){lpStart(e,(x,y)=>itemMenu(x,y,b));const mv0=ev=>lpMove(ev),up0=ev=>{lpCancel();n.removeEventListener("pointermove",mv0);n.removeEventListener("pointerup",up0);n.removeEventListener("pointercancel",up0)};
+      n.addEventListener("pointermove",mv0);n.addEventListener("pointerup",up0);n.addEventListener("pointercancel",up0)}return}
     const resize=t.classList.contains("rz");
     e.preventDefault();e.stopPropagation();
     if(document.activeElement&&document.activeElement!==document.body&&n.contains(document.activeElement)===false)document.activeElement.blur();
     n.setPointerCapture(e.pointerId);W.busy=true;n.classList.add("drag");
     const sx=e.clientX,sy=e.clientY,ox=b.x,oy=b.y,ow=b.w;let moved=false;
-    const mv=ev=>{const dx=(ev.clientX-sx)/W.V.z,dy=(ev.clientY-sy)/W.V.z;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;
+    if(touch&&!resize)lpStart(e,(x,y)=>{b.x=ox;b.y=oy;b.w=ow;n.style.left=ox+"px";n.style.top=oy+"px";up(true);itemMenu(x,y,b)});
+    const mv=ev=>{if(LP.fired)return;if(touch)lpMove(ev);if(touch&&LP.t)return;const dx=(ev.clientX-sx)/W.V.z,dy=(ev.clientY-sy)/W.V.z;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;
       if(resize){b.w=Math.max(160,Math.round(ow+dx));n.style.width=b.w+"px";n.querySelectorAll("textarea.txt").forEach(grow)}
       else{b.x=Math.round(ox+dx);b.y=Math.round(oy+dy);n.style.left=b.x+"px";n.style.top=b.y+"px"}};
-    const up=()=>{n.removeEventListener("pointermove",mv);n.removeEventListener("pointerup",up);n.removeEventListener("pointercancel",up);
-      n.classList.remove("drag");W.busy=false;if(moved)scheduleSave(S.open)};
+    const up=ev=>{lpCancel();n.removeEventListener("pointermove",mv);n.removeEventListener("pointerup",up);n.removeEventListener("pointercancel",up);
+      n.classList.remove("drag");W.busy=false;if(moved&&ev!==true)scheduleSave(S.open);
+      if(touch&&ev!==true&&!moved&&!LP.fired&&ev&&ev.type==="pointerup"&&b.type==="image"&&isDoubleTap(ev,b.id))lightboxB(b)};
     n.addEventListener("pointermove",mv);n.addEventListener("pointerup",up);n.addEventListener("pointercancel",up);
   });
-  n.addEventListener("dblclick",e=>{if(b.type==="image"&&!e.target.closest("input")){e.stopPropagation();lightboxB(b)}});
+  n.addEventListener("dblclick",e=>{e.stopPropagation();if(recentTouch())return;if(b.type==="image"&&!e.target.closest("input"))lightboxB(b)});
 }
 
 function addItem(b,pos,focus){
   const k=S.open;b.id=uid();b.x=Math.round(pos.x);b.y=Math.round(pos.y);b.w=b.w||DEFW[b.type];
   day(k).blocks.push(b);const n=renderItem(b);plane.append(n);n.querySelectorAll("textarea.txt").forEach(grow);
-  $("bhint").hidden=true;select(b.id);renderLayers();scheduleSave(k);
+  select(b.id);renderLayers();scheduleSave(k);
   if(focus){const f=n.querySelector("textarea,input[type=text]");f&&f.focus({preventScroll:true})}
   return b;
 }
@@ -246,7 +271,7 @@ function duplicate(b){const c=JSON.parse(JSON.stringify(b));if(c.items)c.items.f
 let undo=null;
 function removeItem(id){
   const k=S.open,bl=day(k).blocks,i=bl.findIndex(x=>x.id===id);if(i<0)return;
-  const [b]=bl.splice(i,1);const n=nodeOf(id);n&&n.remove();select(null);renderLayers();$("bhint").hidden=bl.length>0;scheduleSave(k);
+  const [b]=bl.splice(i,1);const n=nodeOf(id);n&&n.remove();select(null);renderLayers();scheduleSave(k);
   if(undo)undo.commit();
   const commit=()=>{clearTimeout(t);undo=null;hideToast();if(b.fid)dropFileIfUnused(b.fid)};
   const t=setTimeout(commit,6000);undo={commit};
@@ -262,16 +287,21 @@ board.addEventListener("pointerdown",e=>{
   if(e.button!==0&&e.button!==1)return;
   select(null);if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
   board.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pts.size===1){pan={sx:e.clientX,sy:e.clientY,vx:W.V.x,vy:W.V.y};board.classList.add("panning")}
-  else if(pts.size===2){pan=null;const[a,c]=[...pts.values()];pinch={d:dist(a,c),z:W.V.z}}
+  if(pts.size===1){pan={sx:e.clientX,sy:e.clientY,vx:W.V.x,vy:W.V.y};board.classList.add("panning");
+    lpStart(e,(x,y)=>{pts.clear();pan=null;pinch=null;board.classList.remove("panning");bgMenu(x,y,toCanvas(x,y))})}
+  else if(pts.size===2){lpCancel();pan=null;const[a,c]=[...pts.values()];pinch={d:dist(a,c),z:W.V.z}}
 });
 board.addEventListener("pointermove",e=>{
   W.last={x:e.clientX,y:e.clientY};
   if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(LP.t)lpMove(e);
   if(pinch&&pts.size===2){const[a,c]=[...pts.values()];zoomAt(pinch.z*dist(a,c)/pinch.d/W.V.z,(a.x+c.x)/2,(a.y+c.y)/2)}
   else if(pan){W.V.x=pan.vx+e.clientX-pan.sx;W.V.y=pan.vy+e.clientY-pan.sy;applyView()}
 });
-const endPt=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(!pts.size){pan=null;board.classList.remove("panning")}};
+const endPt=e=>{
+  if(e.type==="pointerup"&&e.pointerType!=="mouse"&&pts.size===1&&pts.has(e.pointerId)&&!LP.fired&&!LP.moved&&isDoubleTap(e,"board")){
+    const p=toCanvas(e.clientX,e.clientY);lpCancel();pts.delete(e.pointerId);pan=null;board.classList.remove("panning");addItem({type:"text",text:""},{x:p.x-20,y:p.y-12},true);return}
+  lpCancel();pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(!pts.size){pan=null;board.classList.remove("panning")}};
 board.addEventListener("pointerup",endPt);board.addEventListener("pointercancel",endPt);
 board.addEventListener("wheel",e=>{
   if(e.target.closest("textarea")&&!e.ctrlKey&&!e.metaKey)return;
@@ -279,7 +309,7 @@ board.addEventListener("wheel",e=>{
   if(e.ctrlKey||e.metaKey)zoomAt(Math.exp(-e.deltaY*0.0022),e.clientX,e.clientY);
   else{W.V.x-=e.deltaX;W.V.y-=e.deltaY;applyView()}
 },{passive:false});
-board.addEventListener("dblclick",e=>{if(e.target.closest(".it,.dock"))return;const p=toCanvas(e.clientX,e.clientY);addItem({type:"text",text:""},{x:p.x-20,y:p.y-12},true)});
+board.addEventListener("dblclick",e=>{if(e.target.closest(".it,.dock,.layers")||recentTouch())return;const p=toCanvas(e.clientX,e.clientY);addItem({type:"text",text:""},{x:p.x-20,y:p.y-12},true)});
 $("zIn").onclick=()=>zoomCenter(1.2);$("zOut").onclick=()=>zoomCenter(1/1.2);
 $("zoomv").onclick=()=>{zoomCenter(1/W.V.z)};$("zFit").onclick=fit;
 
@@ -329,6 +359,7 @@ function itemMenu(cx,cy,b){
 board.addEventListener("contextmenu",e=>{
   if(e.target.closest("textarea,input"))return; // keep the native menu for text editing
   e.preventDefault();
+  if(recentTouch())return; // touch screens use our own long press
   if(e.target.closest(".dock"))return;
   const it=e.target.closest(".it");
   if(it){const b=findB(it.dataset.id);if(b){select(b.id);itemMenu(e.clientX,e.clientY,b)}return}
@@ -356,7 +387,7 @@ async function handleFiles(list,pos){
       if(b.localUrl)URL.revokeObjectURL(b.localUrl);
       toast(isQuota(e)?"На устройстве не хватает места для «"+f.name+"»":"Не удалось сохранить «"+f.name+"»");
       const bl=day(k).blocks;const j=bl.indexOf(b);if(j>=0)bl.splice(j,1);const n=nodeOf(b.id);n&&n.remove();
-      $("bhint").hidden=bl.length>0;renderLayers();continue;
+      renderLayers();continue;
     }
     if(S.open===k)rerender(b);scheduleSave(k);
   }
@@ -616,29 +647,38 @@ function renderLayers(){
   const st=p.querySelector(".llist")?.scrollTop||0;p.textContent="";
   const h=el("div","lhead");h.append(el("b",null,"Слои"));const x=el("button",null,"✕");x.setAttribute("aria-label","Закрыть слои");x.onclick=toggleLayers;h.append(x);p.append(h);
   const bl=(S.days[S.open]?.blocks)||[];
-  if(!bl.length){p.append(el("div","lempty","Пока пусто. Добавьте что-нибудь правым кликом по холсту."));return}
+  if(!bl.length){p.append(el("div","lempty","Пока пусто. Добавьте что-нибудь правым кликом или долгим нажатием на холст."));return}
   const nt=el("div","lnote");nt.append(el("span",null,"↑ передний план"),el("span",null,"тяните, чтобы менять"));p.append(nt);
   const ul=el("ul","llist");
   [...bl].reverse().forEach(b=>{
-    const li=el("li","lrow"+(W.sel===b.id?" sel":"")+(b.hidden?" off":""));li.dataset.id=b.id;li.draggable=true;
+    const li=el("li","lrow"+(W.sel===b.id?" sel":"")+(b.hidden?" off":""));li.dataset.id=b.id;
     const ic=el("span","lic");if(b.type==="image"&&b.fid){const im=el("img");im.alt="";setImg(im,b);ic.append(im)}else ic.textContent=LIC[b.type]||"·";
     const nm=el("span","lname",layerName(b));
     const eye=el("button",b.hidden?"":"act",b.hidden?"◌":"◉");eye.setAttribute("aria-label",b.hidden?"Показать":"Скрыть");eye.title=eye.getAttribute("aria-label");eye.onclick=e=>{e.stopPropagation();toggleHide(b)};
     const lk=el("button",b.locked?"act":"",b.locked?"🔒":"🔓");lk.setAttribute("aria-label",b.locked?"Разблокировать":"Заблокировать");lk.title=lk.getAttribute("aria-label");lk.onclick=e=>{e.stopPropagation();toggleLock(b)};
-    li.append(ic,nm,eye,lk);
-    li.onclick=()=>{if(b.hidden)return;select(b.id);reveal(b)};
-    li.oncontextmenu=e=>{select(b.id);itemMenu(e.clientX,e.clientY,b)};
-    li.ondragstart=e=>{dragRow=b;li.classList.add("dragging");e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",b.id)}catch(_){}};
-    li.ondragend=()=>{dragRow=null;li.classList.remove("dragging");ul.querySelectorAll(".lrow").forEach(r=>r.classList.remove("over-top","over-bot"))};
-    li.ondragover=e=>{if(!dragRow)return;e.preventDefault();const r=li.getBoundingClientRect(),topHalf=e.clientY<r.top+r.height/2;li.classList.toggle("over-top",topHalf);li.classList.toggle("over-bot",!topHalf)};
-    li.ondragleave=()=>li.classList.remove("over-top","over-bot");
-    li.ondrop=e=>{if(!dragRow||dragRow===b)return;e.preventDefault();e.stopPropagation();
-      const r=li.getBoundingClientRect(),above=e.clientY<r.top+r.height/2;const arr=day(S.open).blocks;
-      const from=arr.indexOf(dragRow);arr.splice(from,1);let ti=arr.indexOf(b);if(above)ti+=1;arr.splice(ti,0,dragRow);
-      arr.forEach(q=>{const n=nodeOf(q.id);n&&plane.append(n)});const d=dragRow;dragRow=null;scheduleSave(S.open);renderLayers();select(d.id)};
+    const gr=el("span","lgrab","⋮⋮");gr.setAttribute("aria-hidden","true");gr.title="Перетащите, чтобы изменить порядок";
+    gr.addEventListener("pointerdown",e=>layerDrag(e,li,b,ul));
+    li.append(gr,ic,nm,eye,lk);
+    li.onclick=()=>{if(LP.fired)return;if(b.hidden)return;select(b.id);reveal(b)};
+    li.oncontextmenu=e=>{e.preventDefault();if(recentTouch())return;select(b.id);itemMenu(e.clientX,e.clientY,b)};
+    li.addEventListener("pointerdown",e=>{if(e.target.closest("button,.lgrab"))return;lpStart(e,(x,y)=>{select(b.id);itemMenu(x,y,b)})});
+    li.addEventListener("pointermove",e=>{if(LP.t)lpMove(e)});li.addEventListener("pointerup",lpCancel);li.addEventListener("pointercancel",lpCancel);
     ul.append(li);
   });
   p.append(ul);ul.scrollTop=st;
+}
+function layerDrag(e,li,b,ul){
+  e.preventDefault();e.stopPropagation();const gr=e.currentTarget;gr.setPointerCapture(e.pointerId);li.classList.add("lifting");
+  let target=null,above=false;
+  const clear=()=>ul.querySelectorAll(".lrow").forEach(r=>r.classList.remove("over-top","over-bot"));
+  const mv=ev=>{const r=ul.getBoundingClientRect();if(ev.clientY<r.top+20)ul.scrollTop-=8;else if(ev.clientY>r.bottom-20)ul.scrollTop+=8;
+    const row=document.elementFromPoint(r.left+r.width/2,ev.clientY)?.closest(".lrow");clear();target=null;
+    if(row&&row!==li&&ul.contains(row)){const rr=row.getBoundingClientRect();above=ev.clientY<rr.top+rr.height/2;row.classList.add(above?"over-top":"over-bot");target=row}};
+  const up=()=>{gr.removeEventListener("pointermove",mv);gr.removeEventListener("pointerup",up);gr.removeEventListener("pointercancel",up);clear();li.classList.remove("lifting");
+    if(!target)return;const tb=findB(target.dataset.id);if(!tb)return;const arr=day(S.open).blocks;
+    arr.splice(arr.indexOf(b),1);let ti=arr.indexOf(tb);if(above)ti+=1;arr.splice(ti,0,b); // list is shown top layer first
+    arr.forEach(q=>{const n=nodeOf(q.id);n&&plane.append(n)});scheduleSave(S.open);renderLayers();select(b.id)};
+  gr.addEventListener("pointermove",mv);gr.addEventListener("pointerup",up);gr.addEventListener("pointercancel",up);
 }
 function reveal(b){const n=nodeOf(b.id);if(!n)return;const r=board.getBoundingClientRect(),V=W.V;
   const sx=b.x*V.z+V.x,sy=b.y*V.z+V.y,w=n.offsetWidth*V.z,hh=n.offsetHeight*V.z;
@@ -651,6 +691,12 @@ function toast(msg,action,ms=4500){hideToast();toastEl=el("div","toast");toastEl
   if(action){const b=el("button",null,action[0]);b.onclick=action[1];toastEl.append(b)}document.body.append(toastEl);toastT=setTimeout(hideToast,ms)}
 function hideToast(){clearTimeout(toastT);if(toastEl){toastEl.remove();toastEl=null}}
 
+{const g=$("grid");let sw=null,swiped=0;
+  g.addEventListener("pointerdown",e=>{sw=e.pointerType==="mouse"?null:{x:e.clientX,y:e.clientY,t:Date.now()}});
+  g.addEventListener("pointerup",e=>{if(!sw)return;const dx=e.clientX-sw.x,dy=e.clientY-sw.y,ok=Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5&&Date.now()-sw.t<800;sw=null;
+    if(ok){swiped=Date.now();$(dx<0?"next":"prev").click()}});
+  g.addEventListener("pointercancel",()=>{sw=null});
+  g.addEventListener("click",e=>{if(Date.now()-swiped<450){e.stopPropagation();e.preventDefault()}},true);}
 $("prev").onclick=()=>{S.m--;if(S.m<0){S.m=11;S.y--}renderCal()};
 $("next").onclick=()=>{S.m++;if(S.m>11){S.m=0;S.y++}renderCal()};
 $("today").onclick=()=>{const t=new Date();S.y=t.getFullYear();S.m=t.getMonth();renderCal()};
@@ -893,6 +939,7 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
 addEventListener("visibilitychange",()=>{if(document.hidden)flushAll()});
 addEventListener("pagehide",()=>{flushAll()});
 
+window.__tetrad={S,W}; // для отладки и автотестов
 /* ---------- boot ---------- */
 async function loadDays(){const all=await store.entries("days");S.days={};for(const [k,d] of all)if(d)S.days[k]=d}
 async function boot(){
