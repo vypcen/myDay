@@ -25,6 +25,9 @@
     <div class="month"><h1 id="mName">Октябрь</h1><span class="yr" id="mYear">2026</span></div>
     <div class="nav">
       <span class="hint" id="modeHint"></span>
+      <button class="btn icon" id="srchOpen" aria-label="Поиск" title="Поиск (Ctrl+K или /)">⌕</button>
+      <button class="btn icon" id="tasksOpen" aria-label="Незавершённые задачи" title="Незавершённые задачи">☑</button>
+      <button class="btn icon" id="lockNow" aria-label="Заблокировать" title="Заблокировать" hidden>🔒</button>
       <button class="btn bkbtn" id="bkOpen" title="Данные и бэкап"><span class="bdot"></span>Бэкап</button>
       <button class="btn icon aa" id="setOpen" aria-label="Оформление" title="Оформление">Аа</button>
       <button class="btn icon" id="prev" aria-label="Предыдущий месяц">‹</button>
@@ -33,6 +36,7 @@
     </div>
   </header>
   <div class="banner" id="banner" hidden role="status"></div>
+  <div class="memo" id="memo" hidden></div>
   <section class="cal" aria-label="Календарь">
     <div class="wk"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
     <div class="grid" id="grid"></div>
@@ -46,7 +50,9 @@
       <span class="wsdate" id="wsDate"></span>
       <input class="wstitle" id="wsTitle" placeholder="Название дня" aria-label="Название дня">
     </div>
+    <button class="btn daybtn" id="dayBtn" aria-label="Настроение, цвет дня и привычки" title="Настроение, цвет дня и привычки">☺</button>
     <span class="status" id="status"></span>
+    <button class="btn icon" id="srchOpen2" aria-label="Поиск" title="Поиск (Ctrl+K или /)">⌕</button>
     <button class="btn icon bkbtn" id="bkOpen2" aria-label="Данные и бэкап" title="Данные и бэкап"><span class="bdot"></span>⛁</button>
     <button class="btn icon aa" id="setOpen2" aria-label="Оформление" title="Оформление">Аа</button>
     <button class="btn icon" id="dPrev" aria-label="Предыдущий день">‹</button>
@@ -55,8 +61,16 @@
   <div class="board" id="board">
     <div class="plane" id="plane"></div>
     <div class="dock">
-      <div class="grp"><button id="lyrBtn" aria-label="Слои" title="Слои (L)">☰</button></div>
       <div class="grp">
+        <button id="lyrBtn" aria-label="Слои" title="Слои (L)">☰</button>
+        <button id="selBtn" aria-label="Выделение рамкой" title="Выделение рамкой (V или Shift + перетаскивание)">⬚</button>
+        <button id="drawBtn" aria-label="Рисование" title="Рисование (P)">✎</button>
+      </div>
+      <div class="grp">
+        <button id="undoBtn" aria-label="Отменить" title="Отменить (Ctrl+Z)" disabled>↶</button>
+        <button id="redoBtn" aria-label="Повторить" title="Повторить (Ctrl+Shift+Z)" disabled>↷</button>
+      </div>
+      <div class="grp zgrp">
         <button id="zOut" aria-label="Уменьшить">−</button>
         <button id="zoomv" aria-label="Масштаб 100%">100%</button>
         <button id="zIn" aria-label="Увеличить">+</button>
@@ -68,6 +82,25 @@
 </div>
 <input type="file" id="fileIn" multiple class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="audioIn" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg,.oga,.opus,.aac,.flac" class="sr" tabindex="-1" aria-hidden="true">
+<input type="file" id="camIn" accept="image/*" capture="environment" class="sr" tabindex="-1" aria-hidden="true">
+<input type="file" id="stickIn" accept="image/*,.heic,.heif" class="sr" tabindex="-1" aria-hidden="true">
+<div class="lock" id="lock" hidden>
+  <form class="lockbox" id="lockForm" autocomplete="off">
+    <img src="icons/icon.svg" alt="" width="56" height="56">
+    <h2>Тетрадь дней</h2>
+    <p id="lockMsg">Введите PIN-код</p>
+    <input class="inp" id="lockIn" type="password" autocomplete="current-password" aria-label="PIN-код">
+    <button class="btn primary" type="submit" id="lockGo">Открыть</button>
+    <button class="btn" type="button" id="lockBio" hidden>Войти по Face ID / Touch ID</button>
+    <p class="bkerr" id="lockErr" role="alert"></p>
+    <button type="button" class="linkbtn" id="lockForgot">Забыли код?</button>
+    <div class="lockreset" id="lockReset" hidden>
+      <p>Код не хранится нигде, поэтому восстановить его нельзя. Можно стереть приложение на этом устройстве и вернуть данные из бэкапа — он открывается своим паролем бэкапа.</p>
+      <input class="inp" id="wipeIn" placeholder="Введите СТЕРЕТЬ" autocomplete="off" aria-label="Подтверждение: введите СТЕРЕТЬ">
+      <button class="btn danger" type="button" id="lockWipe">Стереть все данные на устройстве</button>
+    </div>
+  </form>
+</div>
 <div class="drop" id="drop" hidden>Отпустите — файл встанет сюда</div>
 
 <script type="module" src="js/app.js"></script>

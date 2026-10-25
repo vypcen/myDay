@@ -45,7 +45,7 @@ async function* plainStream(snapshot) {
   const files = snapshot.files;
   const manifest = {
     app: "tetrad", format: FORMAT, created: new Date().toISOString(),
-    days: snapshot.days, prefs: snapshot.prefs,
+    days: snapshot.days, prefs: snapshot.prefs, kv: snapshot.kv || {},
     files: files.map(f => ({ id: f.id, name: f.name, mime: f.mime, size: f.blob.size, created: f.created }))
   };
   const m = te.encode(JSON.stringify(manifest));
@@ -56,12 +56,14 @@ async function* plainStream(snapshot) {
 }
 
 export async function snapshot(prefs) {
+  const kv = {};
+  for (const k of ["habits", "templates"]) { const v = await store.get("kv", k); if (v !== undefined) kv[k] = v; }
   const days = Object.fromEntries((await store.entries("days")).filter(([, d]) => d && (d.blocks?.length || d.title)));
   const used = new Set();
   for (const d of Object.values(days)) for (const b of d.blocks || []) if (b.fid) used.add(b.fid);
   const files = [];
   for (const [id, f] of await store.entries("files")) if (used.has(id) && f?.blob) files.push({ id, ...f });
-  return { days, prefs, files };
+  return { days, prefs, files, kv };
 }
 
 // write(Uint8Array) вызывается по порядку; onProgress(доля 0..1).
@@ -196,6 +198,14 @@ export async function restore({ manifest, blobs }, mode) {
     const m = meta[id];
     ops.push({ s: "files", k: id, v: { name: m.name, mime: m.mime, size: blob.size, created: m.created, blob } });
     filesIn++;
+  }
+  // Привычки и свои шаблоны: при замене — как в бэкапе, при объединении — добавить недостающие по id.
+  for (const k of ["habits", "templates"]) {
+    const inc = manifest.kv && manifest.kv[k];
+    if (!Array.isArray(inc)) { if (mode === "replace") ops.push({ s: "kv", k, del: true }); continue; }
+    if (mode === "replace") { ops.push({ s: "kv", k, v: inc }); continue; }
+    const cur = (await store.get("kv", k)) || [], ids = new Set(cur.map(x => x.id));
+    ops.push({ s: "kv", k, v: [...cur, ...inc.filter(x => !ids.has(x.id))] });
   }
   await store.bulk(ops);
   return { daysIn, filesIn };
