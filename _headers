@@ -1,0 +1,10 @@
+# Заголовки для Cloudflare Pages (и Netlify): те же правила приватности, что и в index.html,
+# плюс то, что можно задать только заголовком (frame-ancestors).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob: data:; font-src 'self'; connect-src 'self' blob: data:; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+
+/sw.js
+  Cache-Control: no-cache

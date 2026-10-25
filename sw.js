@@ -1,7 +1,7 @@
 // Офлайн-оболочка приложения. Кэширует только файлы самого приложения — пользовательские данные сюда не попадают.
 const VERSION = "tetrad-v1.0.0";
 const SHELL = [
-  "./", "./index.html", "./manifest.webmanifest",
+  "./", "./manifest.webmanifest",
   "./css/app.css", "./css/fonts.css",
   "./js/app.js", "./js/db.js", "./js/backup.js",
   "./icons/icon.svg", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png",
@@ -71,5 +71,5 @@ self.addEventListener("fetch", e => {
   e.respondWith(caches.match(r, { ignoreSearch: true }).then(hit => hit || fetch(r).then(res => {
     if (res.ok && res.type === "basic") { const copy = res.clone(); caches.open(VERSION).then(c => c.put(r, copy)); }
     return res;
-  }).catch(() => r.mode === "navigate" ? caches.match("./index.html") : Response.error())));
+  }).catch(() => r.mode === "navigate" ? caches.match("./") : Response.error())));
 });
