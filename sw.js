@@ -1,5 +1,5 @@
 // Офлайн-оболочка приложения. Кэширует только файлы самого приложения — пользовательские данные сюда не попадают.
-const VERSION = "myday-v1.4.0";
+const VERSION = "myday-v1.4.1";
 const SHELL = [
   "./", "./manifest.webmanifest",
   "./css/app.css", "./css/fonts.css",
