@@ -62,6 +62,12 @@
 4. Сделайте новый деплой (любой `git push`) — функции из папки `functions/` подхватятся сами.
 5. По желанию: *Security* → **WAF** → *Rate limiting rule* для `POST /api/share`, например 30 запросов в час с одного IP.
 
+**Проверка:** откройте `https://<ваш-сайт>/api/share` — должно показаться `{"ok":true,"storage":true}`.
+- Страница 404 или сам календарь — функции не развернуты. Так бывает, если проект создан как **Worker**
+  или через **загрузку папки** (Upload assets): в обоих случаях папка `functions/` не используется.
+  Нужен проект **Pages**, подключённый к GitHub (Create → Pages → Connect to Git).
+- `"storage":false` — не добавлена привязка R2 `SHARES` (шаг 3) или после неё не было нового деплоя.
+
 API: `POST /api/share` — сохранить пакет; `GET /api/share/:id` — получить (одноразовая удаляется сразу);
 `GET /api/share/:id?meta=1` — статус; `DELETE /api/share/:id` с заголовком `x-share-token` — отозвать.
 Код — `functions/api/share/`, общие помощники — `lib/share-api.js`.

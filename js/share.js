@@ -87,6 +87,10 @@ async function api(method, path, body, headers = {}) {
   let r;
   try { r = await fetch(path, { method, body, headers, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" }); }
   catch (e) { throw new ShareError("offline", "Нет связи с сервером. Проверьте интернет или отправьте файлом"); }
+  const isJson = /json/.test(r.headers.get("content-type") || "");
+  // Ответ не от наших функций (HTML-страница 404/405 или index.html) — серверная часть ссылок не развернута.
+  if (!isJson && (!r.ok || method !== "GET" || /text\/html/.test(r.headers.get("content-type") || "")))
+    throw new ShareError("no_api", "Сервер ссылок не отвечает: на хостинге не развернуты функции myDay (папка functions). Пока отправьте день файлом — инструкция по настройке в README, раздел «Поделиться днём»");
   if (r.ok) return r;
   let msg = ""; try { msg = (await r.json()).error || ""; } catch (e) {}
   const code = r.status === 404 ? "gone" : r.status === 410 ? "expired" : r.status === 413 ? "too_large" : r.status === 429 ? "rate" : r.status === 503 ? "not_configured" : "server";

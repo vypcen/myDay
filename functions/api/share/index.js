@@ -1,5 +1,6 @@
 // POST /api/share — сохранить зашифрованный пакет. Заголовки: x-share-days (1|7|30), x-share-once (0|1).
 // Ответ: {id, token, expires}. token нужен только отправителю — чтобы отозвать ссылку.
+// GET /api/share — проверка настройки: {ok:true, storage:true|false}. Откройте в браузере, чтобы убедиться, что функции развернуты.
 import { MAX_BYTES, DAYS, json, fail, randomId, sha256, looksLikePackage } from "../../../lib/share-api.js";
 
 export async function onRequestPost({ request, env }) {
@@ -18,4 +19,8 @@ export async function onRequestPost({ request, env }) {
     customMetadata: { exp: String(exp), once: once ? "1" : "0", th: await sha256(token) }
   });
   return json({ id, token, expires: exp }, 201);
+}
+
+export async function onRequestGet({ env }) {
+  return json({ ok: true, storage: !!env.SHARES });
 }
