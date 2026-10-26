@@ -16,7 +16,7 @@ import { raw, setCodec, store } from "./db.js";
 
 const te = new TextEncoder(), td = new TextDecoder();
 const ITER = 600000;
-const SENSITIVE_KV = new Set(["habits", "templates"]);
+const SENSITIVE_KV = new Set(["habits", "templates", "shares"]);
 const sensitive = (s, k) => s === "days" || s === "files" || (s === "kv" && SENSITIVE_KV.has(k));
 const rnd = n => crypto.getRandomValues(new Uint8Array(n));
 const aad = (s, k) => te.encode(s + ":" + k);

@@ -1,7 +1,11 @@
 // myDay: интерфейс. Данные — только на устройстве (см. db.js), бэкапы — зашифрованные (см. backup.js).
 import { store, raw, deleteEverything } from "./db.js";
 import * as vault from "./vault.js";
+import * as share from "./share.js";
 import { snapshot, backupToBlob, backupToFolder, readBackup, restore, setBackupPassword, getBackupKey, folderSupported, folderState, pickFolder, listFolderBackups } from "./backup.js";
+
+/* ---------- rename: settings stored under the old app name move to myday-* ---------- */
+try{for(const k of ["prefs","layers","draw","memo-hidden","banner-until"]){const o=localStorage.getItem("tetrad-"+k);if(o!==null){if(localStorage.getItem("myday-"+k)===null)localStorage.setItem("myday-"+k,o);localStorage.removeItem("tetrad-"+k)}}}catch(e){}
 
 /* ---------- touch helpers ---------- */
 const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
@@ -410,6 +414,7 @@ function bgMenu(cx,cy,pos){
   en.push({ic:"●",label:"Записать голос",run:()=>startRec(pos)},
     {ic:"♪",label:"Аудиофайл…",run:()=>{W.pendingPos=pos;$("audioIn").click()}},
     "-",
+    {ic:"↗",label:"Поделиться днём…",run:()=>openShare(null)},
     {ic:"▤",label:"Шаблон…",run:()=>templateMenu(cx,cy,pos)},
     {ic:"⤢",label:"Показать всё",run:fit});
   openMenu(cx,cy,en);
@@ -534,7 +539,7 @@ function customPalette(c){c=c||prefs.custom||DEFP.custom;const{h,s,l}=c,t=(c.t??
     l:[hsl2hex(h,40*t,95.5),hsl2hex(h,45*t,99.3),hsl2hex(h,Math.min(40,s*.5),12),hsl2hex(h,s,Math.min(60,l)),hsl2hex(mh,85,79)],
     d:[hsl2hex(h,32*t,7),hsl2hex(h,26*t,11.5),hsl2hex(h,Math.min(25,s*.3),92),hsl2hex(h,Math.min(100,s*.9+10),Math.max(66,l)),hsl2hex(mh,60,66)]}}
 let prefs={...DEFP};
-try{const r=localStorage.getItem("tetrad-prefs");if(r)prefs={...DEFP,...JSON.parse(r)}}catch(e){} // быстрый первый кадр; основной источник — IndexedDB
+try{const r=localStorage.getItem("myday-prefs");if(r)prefs={...DEFP,...JSON.parse(r)}}catch(e){} // быстрый первый кадр; основной источник — IndexedDB
 
 function lum(hex){const n=parseInt(hex.slice(1),16);const c=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]}
 const onColor=hex=>lum(hex)>.42?"#141414":"#ffffff";
@@ -553,10 +558,10 @@ function applyPrefs(){
   if(typeof refreshTheme==="function")requestAnimationFrame(refreshTheme);
 }
 let prefsT=null;
-function savePrefs(){try{localStorage.setItem("tetrad-prefs",JSON.stringify(prefs))}catch(e){}
+function savePrefs(){try{localStorage.setItem("myday-prefs",JSON.stringify(prefs))}catch(e){}
   clearTimeout(prefsT);prefsT=setTimeout(()=>{store.put("kv","prefs",JSON.parse(JSON.stringify(prefs))).catch(()=>{})},400)}
 function setPref(k,v){prefs[k]=v;applyPrefs();savePrefs();if($("set"))renderSettings()}
-async function loadPrefs(){try{const p=await store.get("kv","prefs");if(p){prefs={...DEFP,...p};applyPrefs();try{localStorage.setItem("tetrad-prefs",JSON.stringify(prefs))}catch(e){}}}catch(e){}}
+async function loadPrefs(){try{const p=await store.get("kv","prefs");if(p){prefs={...DEFP,...p};applyPrefs();try{localStorage.setItem("myday-prefs",JSON.stringify(prefs))}catch(e){}}}catch(e){}}
 
 function closeSettings(){const p=$("set");if(p)p.remove()}
 function openSettings(){closeMenu();if($("set")){closeSettings();return}const p=el("aside","set");p.id="set";p.setAttribute("role","dialog");p.setAttribute("aria-label","Оформление");document.body.append(p);renderSettings();p.querySelector("button")?.focus({preventScroll:true})}
@@ -708,8 +713,8 @@ new MutationObserver(()=>requestAnimationFrame(refreshTheme)).observe(document.d
 
 /* ---------- layers panel ---------- */
 let layersOpen=false;
-try{layersOpen=localStorage.getItem("tetrad-layers")==="1"}catch(e){}
-function toggleLayers(){layersOpen=!layersOpen;try{localStorage.setItem("tetrad-layers",layersOpen?"1":"0")}catch(e){}renderLayers()}
+try{layersOpen=localStorage.getItem("myday-layers")==="1"}catch(e){}
+function toggleLayers(){layersOpen=!layersOpen;try{localStorage.setItem("myday-layers",layersOpen?"1":"0")}catch(e){}renderLayers()}
 $("lyrBtn").onclick=toggleLayers;
 function layerName(b){
   if(b.type==="text")return (b.text||"").trim().split("\n")[0]||"Пустая заметка";
@@ -811,8 +816,8 @@ const NS="http://www.w3.org/2000/svg";
 const DCOLORS=["ink","accent","#e5484d","#f59e0b","#22a06b","#3b82f6","#8b5cf6","#ffffff"];
 const DSIZES={pen:[2,4,8],marker:[12,20,32]};
 let DT={tool:"pen",color:"ink",size:1};
-try{const r=JSON.parse(localStorage.getItem("tetrad-draw")||"null");if(r&&DSIZES[r.tool]||r&&r.tool==="eraser")DT={...DT,...r}}catch(e){}
-const saveDT=()=>{try{localStorage.setItem("tetrad-draw",JSON.stringify(DT))}catch(e){}};
+try{const r=JSON.parse(localStorage.getItem("myday-draw")||"null");if(r&&DSIZES[r.tool]||r&&r.tool==="eraser")DT={...DT,...r}}catch(e){}
+const saveDT=()=>{try{localStorage.setItem("myday-draw",JSON.stringify(DT))}catch(e){}};
 const dcol=c=>c==="ink"?"var(--ink)":c==="accent"?"var(--accent)":c;
 function pathD(p){const n=p.length/2;if(n<2)return `M${p[0]} ${p[1]}l0.01 0`;let d=`M${p[0]} ${p[1]}`;
   for(let i=1;i<n-1;i++){const x=p[2*i],y=p[2*i+1];d+=`Q${x} ${y} ${((x+p[2*i+2])/2).toFixed(1)} ${((y+p[2*i+3])/2).toFixed(1)}`}
@@ -930,6 +935,7 @@ function groupMenu(cx,cy){
     {ic:"⤒",label:"На передний план",run:()=>{for(const b of sel)reorder(b,1e9)}},
     {ic:"⤓",label:"На задний план",run:()=>{for(const b of [...sel].reverse())reorder(b,0)}},
     {ic:allLocked?"◌":"⊘",label:allLocked?"Разблокировать":"Заблокировать",run:()=>{for(const b of sel){b.locked=!allLocked;rerender(b)}paintSel();scheduleSave(S.open)}},
+    {ic:"↗",label:"Поделиться выделенным…",run:()=>openShare(new Set(sel.map(b=>b.id)))},
     "-",{ic:"✕",label:"Удалить",danger:true,run:()=>removeMany(sel.map(b=>b.id))});
   openMenu(cx,cy,en);
 }
@@ -1201,7 +1207,7 @@ document.addEventListener("pointerdown",e=>{const p=$("pop");if(p&&!p.contains(e
 
 /* ---------- "on this day" ---------- */
 function renderMemo(){
-  const m=$("memo");if(!m)return;const t=new Date(),tk=key(t);let hidden="";try{hidden=localStorage.getItem("tetrad-memo-hidden")||""}catch(e){}
+  const m=$("memo");if(!m)return;const t=new Date(),tk=key(t);let hidden="";try{hidden=localStorage.getItem("myday-memo-hidden")||""}catch(e){}
   const items=[];
   const peek=d=>(d.title||"").trim()||((d.blocks||[]).find(b=>b.type==="text"&&(b.text||"").trim())?.text||"").split("\n")[0]||((d.blocks||[]).length+" "+plural((d.blocks||[]).length,"элемент","элемента","элементов"));
   const mo=new Date(t);mo.setMonth(mo.getMonth()-1);if(mo.getDate()===t.getDate()){const k=key(mo);if(S.days[k]&&!isEmpty(S.days[k]))items.push({k,l:"Месяц назад"})}
@@ -1210,7 +1216,7 @@ function renderMemo(){
   if(!items.length||hidden===tk){m.hidden=true;return}
   m.hidden=false;m.textContent="";m.append(el("b",null,"В этот день"));
   items.slice(0,3).forEach(it=>{const b=el("button","memoit");b.append(el("span","ml",it.l),el("span","mt",peek(S.days[it.k])));b.onclick=()=>openDay(it.k);m.append(b)});
-  const x=el("button","btn icon","✕");x.setAttribute("aria-label","Скрыть до завтра");x.onclick=()=>{try{localStorage.setItem("tetrad-memo-hidden",tk)}catch(e){}m.hidden=true};m.append(x);
+  const x=el("button","btn icon","✕");x.setAttribute("aria-label","Скрыть до завтра");x.onclick=()=>{try{localStorage.setItem("myday-memo-hidden",tk)}catch(e){}m.hidden=true};m.append(x);
 }
 
 /* ---------- stickers ---------- */
@@ -1303,7 +1309,7 @@ async function showLock(){
   $("lockMsg").textContent=LOCK.kind==="pin"?"Введите PIN-код":"Введите пароль";$("lockBio").hidden=!LOCK.bio;$("lockErr").textContent="";$("lockReset").hidden=true;
   if(!COARSE||!LOCK.bio)setTimeout(()=>i.focus(),50);
 }
-async function afterUnlock(){lockFails=0;$("lock").hidden=true;document.body.classList.remove("locked");$("lockIn").value="";await startApp()}
+async function afterUnlock(){lockFails=0;$("lock").hidden=true;document.body.classList.remove("locked");$("lockIn").value="";await startApp();await runPendingImport()}
 $("lockForm").onsubmit=async e=>{e.preventDefault();const i=$("lockIn"),err=$("lockErr");
   if(Date.now()<lockWait){err.textContent="Подождите "+Math.ceil((lockWait-Date.now())/1000)+" с";return}
   if(!i.value)return;$("lockGo").disabled=true;$("lockGo").textContent="Проверяю…";
@@ -1318,7 +1324,7 @@ $("lockWipe").onclick=async()=>{if(($("wipeIn").value||"").trim().toUpperCase()!
 async function lockNow(){
   if(!LOCK.on)return;await flushAll();if(REC)stopRec(true);
   closeMenu();closePop();closeModal();closeSettings();closeBackup();closeTasks();if(S.open)closeDay();
-  S.days={};S.habits=[];S.templates=[];for(const k in HIST)delete HIST[k];
+  S.days={};S.habits=[];S.templates=[];S.shares=[];PENDING_IMPORT=null;for(const k in HIST)delete HIST[k];
   for(const k in URLS){try{URL.revokeObjectURL(URLS[k])}catch(e){}delete URLS[k]}
   vault.lock();renderCal();showLock();
 }
@@ -1365,6 +1371,232 @@ function renderLockSection(s,line,btn){
   s.append(el("p","bknote","Даты записей видны в базе браузера открыто, содержимое — нет."));
 }
 
+/* ---------- share a day ---------- */
+S.shares=[];
+const saveShares=()=>store.put("kv","shares",S.shares).catch(()=>{});
+const mbs=n=>n<1048576?Math.max(1,Math.round(n/1024))+" КБ":(n/1048576).toFixed(1)+" МБ";
+const FILE_TYPES=new Set(["image","file","audio"]);
+function shareable(ids){const d=S.days[S.open]||{};let bl=(d.blocks||[]).filter(b=>!b.hidden&&!b.uploading);if(ids)bl=bl.filter(b=>ids.has(b.id));return bl}
+async function shrinkImage(blob,max=2048){
+  if(!/^image\/(png|jpeg|webp|gif|avif|bmp)$/.test(blob.type)||blob.size<1.2*1048576)return blob;
+  const bmp=await decodeBitmap(blob);if(!bmp)return blob;const w0=bmp.width||bmp.naturalWidth,h0=bmp.height||bmp.naturalHeight,k=Math.min(1,max/Math.max(w0,h0));
+  const c=document.createElement("canvas");c.width=Math.round(w0*k);c.height=Math.round(h0*k);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+  const alpha=blob.type!=="image/jpeg"&&alphaOf(bmp);const out=await new Promise(r=>c.toBlob(r,alpha?"image/png":"image/jpeg",.85));return out&&out.size<blob.size?out:blob}
+async function buildShare(ids,withFiles){
+  const d=S.days[S.open]||{},files=[],blobs={},blocks=[];let dropped=0,n=0;
+  for(const b0 of shareable(ids)){
+    const b=stripB(b0);delete b.locked;delete b.hidden;
+    if(b.fid){
+      if(!withFiles){dropped++;continue}
+      let blob;try{blob=await getBlob(b0)}catch(e){dropped++;continue}
+      if(b.type==="image")blob=await shrinkImage(blob);
+      const id="f"+(++n);files.push({id,name:b.name||"файл",mime:blob.type||b.mime||"",size:blob.size});blobs[id]=blob;b.fid=id;b.size=blob.size;
+    }
+    blocks.push(b);
+  }
+  return {manifest:{date:S.open,title:d.title||"",blocks,files,created:Date.now()},blobs,dropped};
+}
+function estimateShare(ids,withFiles){let s=2048;for(const b of shareable(ids)){s+=JSON.stringify(b).length;if(withFiles&&b.fid)s+=Math.min(b.size||0,b.type==="image"?2.5*1048576:Infinity)}return s}
+
+function openShare(ids){
+  if(!S.open)return;closeMenu();closePop();
+  const all=!ids||!ids.size;const st={what:all?"all":"sel",files:true,how:"link",days:7,once:false,pw:""};
+  const box=openModal("sharebox","Поделиться днём");
+  const rnd=()=>{
+    box.textContent="";
+    const h=el("div","sethead");h.append(el("h3","mtitle","Поделиться днём"));const x=el("button","btn icon","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closeModal;h.append(x);box.append(h);
+    box.append(el("p","bknote",fmtDay(S.open)+((S.days[S.open]||{}).title?" · «"+S.days[S.open].title+"»":"")+". Получатель увидит копию дня на момент отправки и сможет добавить её к себе."));
+    const sel=st.what==="sel"?ids:null,list=shareable(sel);
+    if(!all){box.append(el("div","mlabel","Что отправить"));box.append(segm([["Весь день","all"],["Выделенное ("+ids.size+")","sel"]],st.what,v=>{st.what=v;rnd()}))}
+    const nf=list.filter(b=>b.fid).length;
+    if(nf){const l=el("label","chkrow");const c=el("input");c.type="checkbox";c.id="shFiles";c.checked=st.files;c.onchange=()=>{st.files=c.checked;rnd()};
+      l.append(c,document.createTextNode("Фото, файлы и аудио ("+nf+")"));box.append(l)}
+    const est=estimateShare(sel,st.files&&nf>0);
+    box.append(el("p","bknote","Элементов: "+list.filter(b=>st.files||!b.fid).length+" · примерно "+mbs(est)+(est>25*1048576?" — больше 25 МБ, снимите вложения или выберите меньше":"")));
+    box.append(el("div","mlabel","Как отправить"));box.append(segm([["Ссылкой","link"],["Файлом","file"]],st.how,v=>{st.how=v;rnd()}));
+    if(st.how==="link"){
+      box.append(el("div","mlabel","Ссылка работает"));box.append(segm([["1 день",1],["7 дней",7],["30 дней",30]],st.days,v=>{st.days=v;rnd()}));
+      const l=el("label","chkrow");const c=el("input");c.type="checkbox";c.id="shOnce";c.checked=st.once;c.onchange=()=>{st.once=c.checked};l.append(c,document.createTextNode("Открыть можно один раз"));box.append(l);
+    }
+    box.append(el("div","mlabel","Пароль — необязательно"));
+    const pw=el("input","inp");pw.id="shPw";pw.type="password";pw.autocomplete="new-password";pw.placeholder="Без пароля";pw.value=st.pw;pw.oninput=()=>{st.pw=pw.value};box.append(pw);
+    box.append(el("p","bknote",st.how==="link"?"День шифруется на этом устройстве. Ключ — только в самой ссылке, сервер хранит нечитаемые данные и удаляет их по истечении срока. Пароль передайте отдельно — другим сообщением или голосом."
+      :"Файл зашифрован. Без пароля его откроет любой, у кого он есть; с паролем — только тот, кто знает пароль."));
+    const err=el("p","bkerr");err.id="shErr";box.append(err);
+    const r=el("div","row");const go=el("button","btn primary",st.how==="link"?"Создать ссылку":"Сохранить файл");go.id="shGo";
+    go.onclick=()=>createShare(st,sel,go,err);r.append(go);
+    if(S.shares.length){const ml=el("button","btn","Мои ссылки ("+S.shares.length+")");ml.onclick=openMyShares;r.append(ml)}
+    box.append(r);
+  };
+  rnd();
+}
+function segm(opts,cur,fn){const s=el("div","seg");opts.forEach(([l,v])=>{const b=el("button",cur===v?"on":"",l);b.type="button";b.onclick=()=>fn(v);s.append(b)});return s}
+async function createShare(st,sel,go,err){
+  go.disabled=true;const label=go.textContent;go.textContent="Шифрую…";err.textContent="";
+  try{
+    const {manifest,blobs,dropped}=await buildShare(sel,st.files);
+    if(!manifest.blocks.length&&!manifest.title)throw new share.ShareError("empty","В этом дне нечего отправить");
+    if(st.how==="file"){
+      const {bytes}=await share.pack(manifest,blobs,{password:st.pw,embedKey:true});
+      const name=("myDay "+S.open+(manifest.title?" "+manifest.title:"")).replace(/[\\/:*?"<>|]+/g," ").slice(0,80)+".mydayshare";
+      const file=new File([bytes],name,{type:"application/octet-stream"});
+      if(COARSE&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:"День из myDay"})}catch(e){if(e&&e.name!=="AbortError")saveBlob(file,name)}}
+      else saveBlob(file,name);
+      closeModal();toast("Файл дня готов"+(dropped?" (без "+dropped+" вложений)":"")+(st.pw?". Пароль передайте отдельно":""));return;
+    }
+    go.textContent="Загружаю…";
+    const {bytes,linkKey}=await share.pack(manifest,blobs,{password:st.pw});
+    const res=await share.upload(bytes,{days:st.days,once:st.once});
+    const link=share.linkFor(res.id,linkKey);
+    S.shares=[{id:res.id,token:res.token,key:share.b64url(linkKey),date:S.open,title:manifest.title,n:manifest.blocks.length,created:Date.now(),expires:res.expires,once:st.once,pw:!!st.pw},...S.shares].slice(0,200);saveShares();
+    showShareLink(link,st,dropped);
+  }catch(e){err.textContent=e.message||String(e);go.disabled=false;go.textContent=label}
+}
+function showShareLink(link,st,dropped){
+  const box=openModal("sharebox","Ссылка готова");
+  const h=el("div","sethead");h.append(el("h3","mtitle","Ссылка готова"));const x=el("button","btn icon","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closeModal;h.append(x);box.append(h);
+  const i=el("input","inp linkin");i.id="shLink";i.readOnly=true;i.value=link;i.onfocus=()=>i.select();box.append(i);
+  const r=el("div","row");const cp=el("button","btn primary","Скопировать");
+  cp.onclick=async()=>{try{await navigator.clipboard.writeText(link);cp.textContent="Скопировано"}catch(e){i.focus();i.select();cp.textContent="Выделено — скопируйте"}};r.append(cp);
+  if(navigator.share){const sh=el("button","btn","Поделиться…");sh.onclick=()=>navigator.share({url:link,title:"День из myDay"}).catch(()=>{});r.append(sh)}
+  box.append(r);
+  const until=new Date(Date.now()+st.days*864e5);
+  box.append(el("p","bknote","Работает до "+until.getDate()+" "+MG[until.getMonth()]+(st.once?", откроется один раз":"")+". "+(st.pw?"Не забудьте отдельно передать пароль. ":"")+(dropped?"Без вложений: "+dropped+". ":"")+"Отозвать ссылку можно в «Моих ссылках»."));
+  const r2=el("div","row");const ml=el("button","btn","Мои ссылки");ml.onclick=openMyShares;r2.append(ml);box.append(r2);
+}
+async function openMyShares(){
+  const box=openModal("sharebox","Мои ссылки");
+  const draw=st=>{box.textContent="";
+    const h=el("div","sethead");h.append(el("h3","mtitle","Мои ссылки"));const x=el("button","btn icon","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closeModal;h.append(x);box.append(h);
+    if(!S.shares.length){box.append(el("p","bknote","Пока нет отправленных ссылок."));return}
+    const list=el("div","shlist");
+    for(const s of S.shares){
+      const gone=(st[s.id]&&st[s.id].gone)||Date.now()>s.expires;
+      const row=el("div","shrow"+(gone?" gone":""));const m=el("div","shmeta");
+      m.append(el("b",null,(s.title?"«"+s.title+"» · ":"")+fmtDay(s.date)));
+      const left=Math.ceil((s.expires-Date.now())/864e5);
+      m.append(el("span",null,(gone?"не работает":"ещё "+left+" "+plural(left,"день","дня","дней"))+(s.once?" · один раз":"")+(s.pw?" · с паролем":"")+" · отправлено "+ago(s.created)));
+      row.append(m);const a=el("div","shact");
+      if(!gone){const c=el("button","btn","Ссылка");c.onclick=async()=>{const l=share.linkFor(s.id,share.unb64url(s.key));try{await navigator.clipboard.writeText(l);toast("Ссылка скопирована")}catch(e){showShareLink(l,{days:Math.max(1,left),once:s.once,pw:s.pw},0)}};a.append(c);
+        const rv=el("button","btn","Отозвать");rv.onclick=async()=>{if(!rv.dataset.c){rv.dataset.c=1;rv.textContent="Точно отозвать?";rv.classList.add("danger");return}
+          rv.disabled=true;try{await share.revoke(s.id,s.token);toast("Ссылка отозвана")}catch(e){if(e.code!=="gone"){toast(e.message);rv.disabled=false;return}}
+          S.shares=S.shares.filter(z=>z.id!==s.id);saveShares();draw(st)};a.append(rv)}
+      else{const d=el("button","btn","Убрать");d.onclick=()=>{S.shares=S.shares.filter(z=>z.id!==s.id);saveShares();draw(st)};a.append(d)}
+      row.append(a);list.append(row)}
+    box.append(list);
+  };
+  draw({});
+  const st={};await Promise.all(S.shares.filter(s=>Date.now()<s.expires).slice(0,30).map(async s=>{st[s.id]=await share.status(s.id)}));
+  if($("modal")&&box.isConnected)draw(st);
+}
+
+/* ---------- received day: viewer & import ---------- */
+let VIEW=null,PENDING_IMPORT=null;
+function closeViewer(){if(!VIEW)return;for(const u of VIEW.urls)URL.revokeObjectURL(u);VIEW=null;$("viewer")?.remove();document.body.classList.remove("viewing")}
+function viewerShell(){
+  closeViewer();const v=el("div","viewer");v.id="viewer";v.setAttribute("role","dialog");v.setAttribute("aria-label","Присланный день");
+  const bar=el("div","vbar"),hd=el("div","vhead");hd.append(el("span","wsdate","Прислано через myDay"),el("b","vtitle","Открываю…"));
+  const add=el("button","btn primary","Добавить к себе");add.id="vAdd";add.disabled=true;const x=el("button","btn icon","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closeViewer;
+  bar.append(hd,add,x);const bd=el("div","vboard");bd.id="vboard";const pl=el("div","plane");pl.id="vplane";bd.append(pl);v.append(bar,bd);document.body.append(v);document.body.classList.add("viewing");
+  VIEW={urls:[],V:{x:0,y:0,z:1},el:v,board:bd,plane:pl};viewerPan(bd);return v}
+function viewerMsg(text,actions=[]){const pl=$("vplane");if(!pl)return;$("vboard").querySelector(".vmsg")?.remove();const m=el("div","vmsg");m.append(el("p",null,text));
+  const r=el("div","row");actions.forEach(([l,fn,cls])=>{const b=el("button","btn"+(cls?" "+cls:""),l);b.onclick=fn;r.append(b)});if(actions.length)m.append(r);$("vboard").append(m);return m}
+async function openSharedLink(link){
+  viewerShell();viewerMsg("Загружаю присланный день…");
+  try{const bytes=await share.download(link.id);await viewerOpenBytes(bytes,link.key)}
+  catch(e){$("viewer")&&($("viewer").querySelector(".vtitle").textContent="Не открылось",viewerMsg(e.message||String(e),[["Закрыть",closeViewer]]))}
+}
+async function openSharedFile(f){
+  viewerShell();
+  try{await viewerOpenBytes(new Uint8Array(await f.arrayBuffer()),null)}
+  catch(e){$("viewer").querySelector(".vtitle").textContent="Не открылось";viewerMsg(e.message||String(e),[["Закрыть",closeViewer]])}
+}
+async function viewerOpenBytes(bytes,key){
+  if(share.needsPassword(bytes)){
+    const m=viewerMsg("Этот день защищён паролем. Его должен был сообщить отправитель.");
+    const f=el("form","pwf");const i=el("input","inp");i.type="password";i.id="vPw";i.placeholder="Пароль";i.autocomplete="off";const ok=el("button","btn primary","Открыть");ok.type="submit";const er=el("p","bkerr");
+    f.append(i,ok,er);m.append(f);setTimeout(()=>i.focus(),50);
+    await new Promise(res=>{f.onsubmit=async e=>{e.preventDefault();ok.disabled=true;try{const d=await share.unpack(bytes,key,i.value);m.remove();viewerShow(d);res()}catch(x){er.textContent=x.message;ok.disabled=false;i.select()}}});
+    return}
+  viewerShow(await share.unpack(bytes,key));
+}
+function viewerShow(data){
+  const {manifest:m,blobs}=data;VIEW.data=data;$("vboard").querySelector(".vmsg")?.remove();
+  $("viewer").querySelector(".wsdate").textContent="Прислано через myDay · "+fmtDay(m.date);
+  $("viewer").querySelector(".vtitle").textContent=m.title||"Без названия";
+  const urls={};for(const f of m.files){const u=URL.createObjectURL(blobs[f.id]);urls[f.id]=u;VIEW.urls.push(u)}
+  const pl=VIEW.plane;pl.textContent="";
+  for(const b of m.blocks)pl.append(viewItem(b,urls,blobs));
+  if(!m.blocks.length)viewerMsg("В этом дне только название.");
+  const add=$("vAdd");add.disabled=false;add.onclick=()=>importPanel(m);
+  requestAnimationFrame(()=>viewerFit());
+}
+function viewItem(b,urls,blobs){
+  const n=el("div","it vit");n.style.left=b.x+"px";n.style.top=b.y+"px";n.style.width=b.w+"px";applyStyle(n,b);
+  if(b.font&&FONTS[b.font]){n.style.setProperty("--nf",FONTS[b.font].css);n.style.setProperty("--nk",FONTS[b.font].k)}
+  if(b.fs&&SIZES[b.fs])n.style.setProperty("--ns",SIZES[b.fs]+"px");
+  if(b.type==="text"){n.append(el("div","grip","Заметка"));const bd=el("div","body");bd.append(el("div","vtext",b.text||""));n.append(bd)}
+  else if(b.type==="todo"){const it=b.items||[];n.append(el("div","grip","Задачи"+(b.label?" · "+b.label:"")+" "+it.filter(x=>x.done).length+"/"+it.length));
+    const bd=el("div","body todo");it.forEach(x=>{const r=el("div","ti"+(x.done?" done":""));const c=el("input");c.type="checkbox";c.checked=x.done;c.disabled=true;r.append(c,el("span","vtask",x.text));bd.append(r)});n.append(bd)}
+  else if(b.type==="image"){const w=el("div","imgw");const im=el("img");im.alt=b.caption||b.name||"Картинка";im.src=urls[b.fid]||"";w.append(im);if(b.caption)w.append(el("div","cap",b.caption));n.append(w);im.onclick=()=>lightbox(im.src)}
+  else if(b.type==="file"||b.type==="audio"){
+    if(b.type==="audio"&&urls[b.fid]){const w=el("div","vaudio");w.append(el("div","fname",b.name||"Аудио"));const a=el("audio");a.controls=true;a.src=urls[b.fid];a.preload="metadata";w.append(a);n.append(w)}
+    else{const w=el("div","filew");w.append(el("div","ext",((b.name||"").includes(".")?b.name.split(".").pop():"файл").slice(0,4)));const m=el("div","fmeta");m.append(el("div","fname",b.name),el("div","fsize",size(b.size)));
+      const a=el("div","fact");const dl=el("button",null,"Скачать");dl.onclick=()=>saveBlob(blobs[b.fid],b.name||"файл");a.append(dl);m.append(a);w.append(m);n.append(w)}}
+  else if(b.type==="draw"){n.classList.add("drawit");n.append(drawSVG(b))}
+  else if(b.type==="sticker"){n.classList.add("stick");if(b.emoji){const e=el("span","emo",b.emoji);e.style.fontSize=(b.w*.8)+"px";n.append(e)}else{const im=el("img");im.alt="Стикер";im.src=urls[b.fid]||"";n.append(im)}}
+  return n;
+}
+function vApply(){const V=VIEW.V;VIEW.plane.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.z})`}
+function viewerFit(){
+  if(!VIEW)return;const r=VIEW.board.getBoundingClientRect(),ns=[...VIEW.plane.querySelectorAll(".vit")];
+  if(!ns.length){VIEW.V={x:40,y:40,z:1};vApply();return}
+  let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;ns.forEach(n=>{x1=Math.min(x1,n.offsetLeft);y1=Math.min(y1,n.offsetTop);x2=Math.max(x2,n.offsetLeft+n.offsetWidth);y2=Math.max(y2,n.offsetTop+n.offsetHeight)});
+  const z=Math.max(.2,Math.min(1,(r.width-40)/(x2-x1||1),(r.height-40)/(y2-y1||1)));VIEW.V={z,x:(r.width-(x2-x1)*z)/2-x1*z,y:Math.max(20,(r.height-(y2-y1)*z)/2)-y1*z};vApply()}
+function viewerPan(bd){
+  const P=new Map();let st=null,pz=null;
+  bd.addEventListener("pointerdown",e=>{if(e.target.closest("button,audio,a,.vmsg,input"))return;bd.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(P.size===1)st={sx:e.clientX,sy:e.clientY,vx:VIEW.V.x,vy:VIEW.V.y};else if(P.size===2){st=null;const[a,c]=[...P.values()];pz={d:Math.hypot(a.x-c.x,a.y-c.y),z:VIEW.V.z}}});
+  bd.addEventListener("pointermove",e=>{if(!P.has(e.pointerId))return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});const V=VIEW.V;
+    if(pz&&P.size===2){const[a,c]=[...P.values()],r=bd.getBoundingClientRect(),nz=Math.min(2.5,Math.max(.2,pz.z*Math.hypot(a.x-c.x,a.y-c.y)/pz.d)),px=(a.x+c.x)/2-r.left,py=(a.y+c.y)/2-r.top;
+      V.x=px-(px-V.x)*nz/V.z;V.y=py-(py-V.y)*nz/V.z;V.z=nz;vApply()}
+    else if(st){V.x=st.vx+e.clientX-st.sx;V.y=st.vy+e.clientY-st.sy;vApply()}});
+  const end=e=>{P.delete(e.pointerId);if(P.size<2)pz=null;if(!P.size)st=null};bd.addEventListener("pointerup",end);bd.addEventListener("pointercancel",end);
+  bd.addEventListener("wheel",e=>{e.preventDefault();const V=VIEW.V;if(e.ctrlKey||e.metaKey){const r=bd.getBoundingClientRect(),nz=Math.min(2.5,Math.max(.2,V.z*Math.exp(-e.deltaY*.0022))),px=e.clientX-r.left,py=e.clientY-r.top;
+    V.x=px-(px-V.x)*nz/V.z;V.y=py-(py-V.y)*nz/V.z;V.z=nz}else{V.x-=e.deltaX;V.y-=e.deltaY}vApply()},{passive:false});
+}
+function importPanel(m){
+  const box=openModal("sharebox","Добавить к себе");
+  const h=el("div","sethead");h.append(el("h3","mtitle","Добавить в мой календарь"));const x=el("button","btn icon","✕");x.setAttribute("aria-label","Закрыть");x.onclick=closeModal;h.append(x);box.append(h);
+  box.append(el("p","bknote","Копия ляжет только на это устройство. Если в выбранный день уже есть записи, ничего не перезапишется — присланное встанет рядом."));
+  const l=el("label","alrow");l.append(el("span",null,"Дата"));const d=el("input","inp");d.type="date";d.id="impDate";d.value=m.date;l.append(d);box.append(l);
+  const er=el("p","bkerr");const r=el("div","row");const ok=el("button","btn primary","Добавить");ok.id="impGo";r.append(ok);box.append(r,er);
+  ok.onclick=async()=>{const k=d.value;if(!/^\d{4}-\d{2}-\d{2}$/.test(k)){er.textContent="Выберите дату";return}
+    if(LOCK.on&&!vault.isUnlocked()){PENDING_IMPORT={data:VIEW.data,k};closeModal();closeViewer();toast("Откройте myDay — после входа день добавится");return}
+    ok.disabled=true;try{await importShared(VIEW.data,k);closeModal();closeViewer();openDay(k);toast("День добавлен")}catch(e){er.textContent=isQuota(e)?"На устройстве не хватает места":"Не удалось добавить: "+(e.message||e);ok.disabled=false}};
+}
+async function importShared({manifest:m,blobs},k){
+  const d=day(k),inc=m.blocks;
+  if(inc.length){
+    const x0=Math.min(...inc.map(b=>b.x)),y0=Math.min(...inc.map(b=>b.y)),spot=(d.blocks||[]).filter(b=>!b.hidden).length?freeSpot(d):{x:x0,y:y0};
+    const dx=spot.x-x0,dy=spot.y-y0,fmap={},gmap={},ops=[];
+    for(const f of m.files){const nf=uid()+uid();fmap[f.id]=nf;ops.push({s:"files",k:nf,v:{name:f.name,mime:f.mime,size:blobs[f.id].size,created:Date.now(),blob:blobs[f.id]}})}
+    if(ops.length)await store.bulk(ops);
+    if(S.open===k)histBoundary(k);
+    for(const b0 of inc){const b=JSON.parse(JSON.stringify(b0));b.id=uid();b.x+=dx;b.y+=dy;if(b.fid)b.fid=fmap[b.fid];if(b.g)b.g=gmap[b.g]||(gmap[b.g]=uid());
+      if(b.items)b.items=b.items.map(i=>({...i,id:uid()}));d.blocks.push(b)}
+  }
+  if(!(d.title||"").trim()&&m.title)d.title=m.title;
+  delete S.views[k];if(S.open===k)renderWs();scheduleSave(k);await flush(k);
+}
+async function runPendingImport(){if(!PENDING_IMPORT)return;const p=PENDING_IMPORT;PENDING_IMPORT=null;try{await importShared(p.data,p.k);openDay(p.k);toast("Присланный день добавлен")}catch(e){toast("Не удалось добавить присланный день")}}
+const isShareFile=f=>/\.mydayshare$/i.test(f.name||"");
+$("shareIn").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f){closeBackup();openSharedFile(f)}};
+if("launchQueue" in window)try{launchQueue.setConsumer(async p=>{for(const h of p.files||[]){const f=await h.getFile();if(isShareFile(f)){openSharedFile(f);break}}})}catch(e){}
+addEventListener("drop",e=>{const fs=e.dataTransfer&&[...e.dataTransfer.files];const f=fs&&fs.find(isShareFile);if(!f)return;e.preventDefault();e.stopImmediatePropagation();dragDepth=0;$("drop").hidden=true;openSharedFile(f)},true);
+addEventListener("dragover",e=>{if(!S.open&&e.dataTransfer&&[...e.dataTransfer.types].includes("Files"))e.preventDefault()});
+$("shareBtn").onclick=()=>openShare(W.multi.size?new Set(W.multi):null);
+
 /* ---------- ui bits ---------- */
 function lightbox(s){if(!s)return;const o=el("div","lb");const im=el("img");im.src=s;im.alt="";o.append(im);o.onclick=()=>o.remove();document.body.append(o)}
 let toastEl=null,toastT=null;
@@ -1383,6 +1615,7 @@ $("next").onclick=()=>{S.m++;if(S.m>11){S.m=0;S.y++}renderCal()};
 $("today").onclick=()=>{const t=new Date();S.y=t.getFullYear();S.m=t.getMonth();renderCal()};
 $("back").onclick=closeDay;
 $("wsMore").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();openMenu(r.right-240,r.bottom+6,[
+  {ic:"↗",label:"Поделиться днём",run:()=>openShare(W.multi.size?new Set(W.multi):null)},
   {ic:"⌕",label:"Поиск",run:openSearch},
   {ic:"☑",label:"Незавершённые задачи",run:openTasks},
   {ic:"☰",label:"Слои",run:toggleLayers},
@@ -1400,13 +1633,14 @@ addEventListener("keydown",e=>{
     const lb=document.querySelector(".lb");if(lb){lb.remove();return}
     if(menu){closeMenu();return}
     if($("modal")){closeModal();return}
+    if(VIEW){closeViewer();return}
     if($("pop")){closePop();return}
     if($("set")){closeSettings();return}if($("bk")){closeBackup();return}if($("tasks")){closeTasks();return}
     if(typing){ae.blur();return}
     if(S.open){if(W.mode!=="pan"){setMode("pan");return}if(W.multi.size)select(null);else closeDay()}return}
   if(mod&&e.code==="KeyK"){e.preventDefault();openSearch();return}
   if(!typing&&!mod&&e.key==="/"){e.preventDefault();openSearch();return}
-  if($("modal"))return;
+  if($("modal")||VIEW)return;
   if(S.open&&!typing&&mod&&e.code==="KeyZ"){e.preventDefault();undoRedo(e.shiftKey?1:-1);return}
   if(S.open&&!typing&&mod&&e.code==="KeyY"){e.preventDefault();undoRedo(1);return}
   if(S.open&&!typing&&mod&&e.code==="KeyG"){e.preventDefault();if(e.shiftKey)ungroupSel();else groupSel();return}
@@ -1418,6 +1652,7 @@ addEventListener("keydown",e=>{
   if(!S.open&&!typing){if(e.key==="ArrowLeft")$("prev").click();if(e.key==="ArrowRight")$("next").click()}
 });
 addEventListener("resize",closeMenu);
+addEventListener("hashchange",()=>{const sl=share.parseLink(location.hash);if(!sl)return;try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}openSharedLink(sl)});
 
 
 /* ---------- data protection: persistence, install, backups ---------- */
@@ -1528,6 +1763,11 @@ function renderBackup(){
     s4.append(el("p","bknote","Старые копии чистятся постепенно: за последние 2 дня хранятся все, затем по одной на день за 2 недели, на неделю за 2 месяца и на месяц за 2 года. Если данные случайно испортятся, хорошие копии останутся."));
   }
 
+  // 4b. shared days
+  const s4b=sec("Присланные дни и мои ссылки");
+  s4b.append(el("p","bknote","Файл дня (.mydayshare), который вам прислали, открывается здесь. Ссылки открываются сами."));
+  {const r=el("div","row");btn(r,"Открыть файл дня…",()=>$("shareIn").click());if(S.shares.length)btn(r,"Мои ссылки ("+S.shares.length+")",openMyShares);s4b.append(r)}
+
   // 5. restore
   const s5=sec("Восстановить из бэкапа");
   const R=BK.restore;
@@ -1566,7 +1806,7 @@ function renderBackup(){
 }
 function strength(pw){let s=0;if(pw.length>=8)s++;if(pw.length>=12)s++;if(/[a-zа-яё]/.test(pw)&&/[A-ZА-ЯЁ]/.test(pw))s++;if(/\d/.test(pw)&&/[^\wа-яё]/i.test(pw))s++;if(pw.length>=16)s=Math.max(s,3);return Math.min(4,s)}
 
-async function withLock(fn){if(navigator.locks&&navigator.locks.request)return navigator.locks.request("tetrad-backup",{ifAvailable:true},l=>l?fn():null);return fn()}
+async function withLock(fn){if(navigator.locks&&navigator.locks.request)return navigator.locks.request("myday-backup",{ifAvailable:true},l=>l?fn():null);return fn()}
 async function flushAll(){for(const k of [...dirty]){clearTimeout(timers[k]);await flush(k)}}
 async function doBackup(where){
   if(BK.busy)return;const kr=await getBackupKey();if(!kr){toast("Сначала задайте пароль бэкапа");return}
@@ -1618,7 +1858,7 @@ setInterval(()=>autoBackup(false),10*6e4);
 /* reminder banner + header badge */
 async function updateBanner(){
   const bn=$("banner"),badge=$("bkOpen");if(!bn)return;
-  const dismissed=+(localStorage.getItem("tetrad-banner-until")||0)>Date.now();
+  const dismissed=+(localStorage.getItem("myday-banner-until")||0)>Date.now();
   let msg="",act="Настроить бэкап",fn=openBackup;
   const last=BK.last&&BK.last.at,old=!last||Date.now()-last>7*864e5;
   if(BK.dir&&BK.perm==="prompt"){msg="Автобэкап на паузе: браузер просит снова разрешить доступ к папке.";act="Разрешить";fn=async()=>{await folderState(true);await refreshBK();autoBackup(false)}}
@@ -1627,14 +1867,14 @@ async function updateBanner(){
   if(!msg||dismissed&&!(BK.perm==="prompt")){bn.hidden=true;return}
   bn.hidden=false;bn.textContent="";
   const t=el("span",null,msg),b1=el("button","btn primary",act),b2=el("button","btn","Позже");
-  b1.onclick=fn;b2.onclick=()=>{try{localStorage.setItem("tetrad-banner-until",String(Date.now()+864e5))}catch(e){}bn.hidden=true};
+  b1.onclick=fn;b2.onclick=()=>{try{localStorage.setItem("myday-banner-until",String(Date.now()+864e5))}catch(e){}bn.hidden=true};
   bn.append(t,b1,b2);
 }
 $("bkOpen").onclick=openBackup;$("bkOpen2").onclick=openBackup;
 document.addEventListener("pointerdown",e=>{const p=$("bk");if(p&&!p.contains(e.target)&&!e.target.closest("#bkOpen,#bkOpen2,.banner,.toast"))closeBackup()},true);
 
 /* ---------- other tabs ---------- */
-const bc="BroadcastChannel" in window?new BroadcastChannel("tetrad"):null;
+const bc="BroadcastChannel" in window?new BroadcastChannel("myday"):null;
 if(bc)bc.onmessage=async e=>{
   const m=e.data||{};
   if(m.vault){location.reload();return}
@@ -1651,7 +1891,9 @@ if("serviceWorker" in navigator&&location.protocol!=="file:"){
     if(reg.waiting&&navigator.serviceWorker.controller)offer(reg.waiting);
     reg.addEventListener("updatefound",()=>{const w=reg.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)offer(w)})});
   }).catch(()=>{});
-  let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloaded)return;reloaded=true;flushAll().finally(()=>location.reload())});
+  // Перезагрузка — только при обновлении версии; при самой первой установке офлайн-кэша страницу не трогаем.
+  const hadController=!!navigator.serviceWorker.controller;
+  let reloaded=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloaded||!hadController)return;reloaded=true;flushAll().finally(()=>location.reload())});
 }
 let hiddenAt=0;
 addEventListener("visibilitychange",async()=>{
@@ -1668,7 +1910,7 @@ async function loadPrivate(){
     const ex=examples();await store.bulk([...Object.entries(ex).map(([k,v])=>({s:"days",k,v:{...v,updatedAt:1}})),{s:"kv",k:"init",v:Date.now()}]);
   }
   await loadDays();
-  S.habits=(await store.get("kv","habits"))||[];S.templates=(await store.get("kv","templates"))||[];
+  S.habits=(await store.get("kv","habits"))||[];S.templates=(await store.get("kv","templates"))||[];S.shares=(await store.get("kv","shares"))||[];
 }
 async function startApp(){
   try{await loadPrivate()}catch(e){$("modeHint").textContent="Хранилище недоступно: "+(e.message||e);console.error(e)}
@@ -1681,6 +1923,8 @@ async function startApp(){
 async function boot(){
   applyPrefs();renderCal();
   try{await loadPrefs();await refreshLock()}catch(e){console.error(e)}
+  const sl=share.parseLink(location.hash);
+  if(sl){try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}openSharedLink(sl)}
   if(LOCK.on){vault.lock();showLock();return}
   await startApp();
 }

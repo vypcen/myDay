@@ -57,7 +57,7 @@ async function* plainStream(snapshot) {
 
 export async function snapshot(prefs) {
   const kv = {};
-  for (const k of ["habits", "templates"]) { const v = await store.get("kv", k); if (v !== undefined) kv[k] = v; }
+  for (const k of ["habits", "templates", "shares"]) { const v = await store.get("kv", k); if (v !== undefined) kv[k] = v; }
   const days = Object.fromEntries((await store.entries("days")).filter(([, d]) => d && (d.blocks?.length || d.title)));
   const used = new Set();
   for (const d of Object.values(days)) for (const b of d.blocks || []) if (b.fid) used.add(b.fid);
@@ -200,7 +200,7 @@ export async function restore({ manifest, blobs }, mode) {
     filesIn++;
   }
   // Привычки и свои шаблоны: при замене — как в бэкапе, при объединении — добавить недостающие по id.
-  for (const k of ["habits", "templates"]) {
+  for (const k of ["habits", "templates", "shares"]) {
     const inc = manifest.kv && manifest.kv[k];
     if (!Array.isArray(inc)) { if (mode === "replace") ops.push({ s: "kv", k, del: true }); continue; }
     if (mode === "replace") { ops.push({ s: "kv", k, v: inc }); continue; }

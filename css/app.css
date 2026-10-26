@@ -554,3 +554,41 @@ body.locked{overflow:hidden}
 /* calendar page scrolls when it doesn't fit (landscape phones, banners) instead of clipping rows */
 .app{height:auto;min-height:100%}
 .cal{flex:1 0 auto}
+
+/* ----- share a day ----- */
+.sharebox{width:min(480px,100%);overflow-y:auto}
+.sharebox .mlabel{padding:4px 0 0}
+.chkrow{display:flex;align-items:center;gap:10px;font-size:14px}
+.chkrow input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.linkin{font:13px var(--f-mono)}
+.shlist{display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.shrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--paper)}
+.shrow.gone{opacity:.6}
+.shmeta{flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px}
+.shmeta b{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.shmeta span{font-size:12.5px;color:var(--muted)}
+.shact{display:flex;gap:6px}
+.shact .btn{height:34px;padding:0 10px}
+.viewer{position:fixed;left:0;right:0;top:var(--vvt,0px);height:var(--vvh,100%);z-index:95;display:flex;flex-direction:column;background:var(--paper)}
+body.viewing{overflow:hidden}
+.vbar{flex:none;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:var(--paper);
+  padding:calc(8px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
+.vhead{flex:1;min-width:0;display:flex;flex-direction:column}
+.vtitle{font:600 calc(18px * var(--k-display))/1.3 var(--f-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vbar .btn{flex:none}
+.vboard{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;cursor:grab;
+  background-image:radial-gradient(var(--dot) 1.1px,transparent 1.3px);background-size:22px 22px}
+.vit{cursor:default}
+.vit .rz{display:none}
+.vtext{white-space:pre-wrap;word-break:break-word;line-height:1.5;padding-bottom:2px;min-height:1.5em;color:var(--it-fg,var(--ink))}
+.vtask{flex:1;min-width:0;padding:3px 0;color:var(--it-fg,var(--ink))}
+.ti.done .vtask{text-decoration:line-through;opacity:.6}
+.vit .imgw img{cursor:zoom-in}
+.vaudio{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.vaudio audio{width:100%}
+.vmsg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:min(380px,calc(100% - 32px));background:var(--sheet);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 12px 40px var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px;text-align:center;cursor:default}
+.vmsg p{margin:0;font-size:14.5px;line-height:1.5}
+.vmsg .row{justify-content:center}
+@media (max-width:600px){.wsbar #shareBtn{display:none}.vbar .btn.primary{padding:0 10px}}
+body.viewing .modal{z-index:97}body.viewing .toast,body.viewing .lb{z-index:98}
