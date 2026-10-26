@@ -1477,9 +1477,9 @@ async function openMyShares(){
       const left=Math.ceil((s.expires-Date.now())/864e5);
       m.append(el("span",null,(gone?"не работает":"ещё "+left+" "+plural(left,"день","дня","дней"))+(s.once?" · один раз":"")+(s.pw?" · с паролем":"")+" · отправлено "+ago(s.created)));
       row.append(m);const a=el("div","shact");
-      if(!gone){const c=el("button","btn","Ссылка");c.onclick=async()=>{const l=share.linkFor(s.id,share.unb64url(s.key));try{await navigator.clipboard.writeText(l);toast("Ссылка скопирована")}catch(e){showShareLink(l,{days:Math.max(1,left),once:s.once,pw:s.pw},0)}};a.append(c);
+      if(!gone){const c=el("button","btn","Ссылка");c.onclick=async()=>{const l=share.linkFor(s.id,share.unb64url(s.key),s.created);try{await navigator.clipboard.writeText(l);toast("Ссылка скопирована")}catch(e){showShareLink(l,{days:Math.max(1,left),once:s.once,pw:s.pw},0)}};a.append(c);
         const rv=el("button","btn","Отозвать");rv.onclick=async()=>{if(!rv.dataset.c){rv.dataset.c=1;rv.textContent="Точно отозвать?";rv.classList.add("danger");return}
-          rv.disabled=true;try{await share.revoke(s.id,s.token);toast("Ссылка отозвана")}catch(e){if(e.code!=="gone"){toast(e.message);rv.disabled=false;return}}
+          rv.disabled=true;try{await share.revoke(s.id,s.token);toast("Ссылка отозвана")}catch(e){if(e.code!=="gone"&&e.code!=="notfound"){toast(e.message);rv.disabled=false;return}}
           S.shares=S.shares.filter(z=>z.id!==s.id);saveShares();draw(st)};a.append(rv)}
       else{const d=el("button","btn","Убрать");d.onclick=()=>{S.shares=S.shares.filter(z=>z.id!==s.id);saveShares();draw(st)};a.append(d)}
       row.append(a);list.append(row)}
@@ -1503,7 +1503,14 @@ function viewerMsg(text,actions=[]){const pl=$("vplane");if(!pl)return;$("vboard
   const r=el("div","row");actions.forEach(([l,fn,cls])=>{const b=el("button","btn"+(cls?" "+cls:""),l);b.onclick=fn;r.append(b)});if(actions.length)m.append(r);$("vboard").append(m);return m}
 async function openSharedLink(link){
   viewerShell();viewerMsg("Загружаю присланный день…");
-  try{const bytes=await share.download(link.id);await viewerOpenBytes(bytes,link.key)}
+  try{
+    let bytes;
+    for(let i=0;;i++){
+      try{bytes=await share.download(link.id);break}
+      catch(e){if(e.code!=="notfound"||!link.created||Date.now()-link.created>150000||i>=12)throw e;
+        viewerMsg("Ссылку только что создали — ждём, пока она дойдёт до сервера…");await new Promise(r=>setTimeout(r,5000))}
+    }
+    await viewerOpenBytes(bytes,link.key)}
   catch(e){$("viewer")&&($("viewer").querySelector(".vtitle").textContent="Не открылось",viewerMsg(e.message||String(e),[["Закрыть",closeViewer]]))}
 }
 async function openSharedFile(f){

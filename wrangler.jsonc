@@ -11,8 +11,10 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-  "r2_buckets": [
-    { "binding": "SHARES", "bucket_name": "myday-shares" }
+  // Хранилище ссылок — Workers KV (бесплатно, без подписок). id не указан: Wrangler создаст хранилище сам при первом деплое.
+  // Если захотите R2 вместо KV: "r2_buckets": [{ "binding": "SHARES", "bucket_name": "myday-shares" }]
+  "kv_namespaces": [
+    { "binding": "SHARES_KV" }
   ],
   "observability": { "enabled": true }
 }

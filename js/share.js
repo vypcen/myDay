@@ -93,8 +93,8 @@ async function api(method, path, body, headers = {}) {
     throw new ShareError("no_api", "Сервер ссылок не отвечает: на хостинге не развернуты функции myDay (папка functions). Пока отправьте день файлом — инструкция по настройке в README, раздел «Поделиться днём»");
   if (r.ok) return r;
   let msg = ""; try { msg = (await r.json()).error || ""; } catch (e) {}
-  const code = r.status === 404 ? "gone" : r.status === 410 ? "expired" : r.status === 413 ? "too_large" : r.status === 429 ? "rate" : r.status === 503 ? "not_configured" : "server";
-  const text = { gone: "Ссылка больше не работает: её отозвали, она уже была открыта или истёк срок", expired: "Срок действия ссылки истёк",
+  const code = r.status === 404 ? "notfound" : r.status === 410 ? "gone" : r.status === 413 ? "too_large" : r.status === 429 ? "rate" : r.status === 503 ? "not_configured" : "server";
+  const text = { gone: "Ссылка больше не работает: её отозвали, она уже была открыта или истёк срок", notfound: "Ссылка не найдена: она неполная или срок её действия давно истёк",
     too_large: "Слишком большой день для ссылки (до 25 МБ)", rate: "Слишком много ссылок за сутки. Попробуйте завтра или отправьте файлом",
     not_configured: "Ссылки пока не настроены на сервере. Отправьте день файлом" }[code];
   throw new ShareError(code, text || msg || "Ошибка сервера (" + r.status + ")");
@@ -104,11 +104,13 @@ export async function upload(bytes, { days, once }) {
   return r.json(); // {id, token, expires}
 }
 export async function download(id) { return new Uint8Array(await (await api("GET", "/api/share/" + encodeURIComponent(id))).arrayBuffer()); }
-export async function status(id) { try { return await (await api("GET", "/api/share/" + encodeURIComponent(id) + "?meta=1")).json(); } catch (e) { return { gone: e.code === "gone" || e.code === "expired", error: e.code }; } }
+export async function status(id) { try { const s = await (await api("GET", "/api/share/" + encodeURIComponent(id) + "?meta=1")).json(); if (s.missing) s.gone = true; return s; } catch (e) { return { gone: e.code === "gone" || e.code === "notfound", error: e.code }; } }
 export async function revoke(id, token) { await api("DELETE", "/api/share/" + encodeURIComponent(id), null, { "x-share-token": token }); }
 
-export const linkFor = (id, key) => location.origin + location.pathname + "#share=" + id + "." + b64url(key);
+// Третья часть ссылки — время создания (не секрет): свежую ссылку получатель подождёт, пока она разойдётся
+// по серверам Cloudflare (в KV новая запись доходит до других регионов за время до минуты).
+export const linkFor = (id, key, created = Date.now()) => location.origin + location.pathname + "#share=" + id + "." + b64url(key) + "." + Math.floor(created / 1000).toString(36);
 export function parseLink(hash) {
-  const m = /^#share=([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{40,64})$/.exec(hash || "");
-  return m ? { id: m[1], key: unb64url(m[2]) } : null;
+  const m = /^#share=([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{40,64})(?:\.([0-9a-z]{1,10}))?$/.exec(hash || "");
+  return m ? { id: m[1], key: unb64url(m[2]), created: m[3] ? parseInt(m[3], 36) * 1000 : 0 } : null;
 }
