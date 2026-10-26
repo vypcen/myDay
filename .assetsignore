@@ -9,3 +9,4 @@ functions
 lib
 prototype
 *.md
+.wrangler
