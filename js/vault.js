@@ -169,8 +169,8 @@ export async function enableBio() {
   const salt = rnd(32);
   const cred = await navigator.credentials.create({ publicKey: {
     challenge: rnd(32), timeout: 60000,
-    rp: { name: "Тетрадь дней", id: location.hostname },
-    user: { id: rnd(16), name: "Тетрадь дней", displayName: "Тетрадь дней" },
+    rp: { name: "myDay", id: location.hostname },
+    user: { id: rnd(16), name: "myDay", displayName: "myDay" },
     pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
     authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "preferred", userVerification: "required" },
     extensions: { prf: { eval: { first: salt } } }

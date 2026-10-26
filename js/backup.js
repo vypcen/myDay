@@ -1,6 +1,6 @@
-// Зашифрованные бэкапы «Тетради дней».
+// Зашифрованные бэкапы myDay.
 //
-// Формат файла .tetrad (версия 1):
+// Формат файла .myday (версия 1; старые бэкапы .tetrad — тот же формат):
 //   "TETRADBK" (8 байт) | версия (1 байт) | длина заголовка (u32 BE) | заголовок JSON
 //   затем блоки: флаг (1 байт: 0 — обычный, 1 — последний) | длина (u32 BE) | шифротекст AES-256-GCM
 // Заголовок открыт и содержит только параметры шифрования: {kdf, iter, salt, np}. Даты, имена файлов,
@@ -11,7 +11,7 @@
 
 import { store } from "./db.js";
 
-const MAGIC = new TextEncoder().encode("TETRADBK");
+const MAGIC = new TextEncoder().encode("TETRADBK"); // сигнатура формата, не менять: по ней открываются и старые бэкапы
 const FORMAT = 1;
 const CHUNK = 4 * 1024 * 1024;
 export const KDF_ITER = 600000;
@@ -112,7 +112,7 @@ export class BackupError extends Error { constructor(code, msg) { super(msg); th
 
 async function readHeader(file) {
   const first = new Uint8Array(await file.slice(0, 13).arrayBuffer());
-  if (first.length < 13 || MAGIC.some((b, i) => first[i] !== b)) throw new BackupError("not_backup", "Это не файл бэкапа «Тетради дней»");
+  if (first.length < 13 || MAGIC.some((b, i) => first[i] !== b)) throw new BackupError("not_backup", "Это не файл бэкапа myDay");
   if (first[8] !== FORMAT) throw new BackupError("version", "Бэкап сделан более новой версией приложения. Обновите приложение");
   const hlen = new DataView(first.buffer).getUint32(9);
   if (hlen > 4096) throw new BackupError("corrupt", "Файл бэкапа повреждён");
@@ -233,10 +233,10 @@ export async function folderState(ask) {
 
 const stamp = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") +
   "_" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
-const NAME_RE = /^tetrad-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})\.tetrad$/;
+const NAME_RE = /^(?:myday|tetrad)-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})\.(?:myday|tetrad)$/;
 
 export async function backupToFolder(dir, snap, keyRec, onProgress) {
-  const name = "tetrad-" + stamp(new Date()) + ".tetrad";
+  const name = "myday-" + stamp(new Date()) + ".myday";
   const fh = await dir.getFileHandle(name, { create: true });
   const w = await fh.createWritable();
   let info;

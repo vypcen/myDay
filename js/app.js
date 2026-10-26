@@ -1,4 +1,4 @@
-// «Тетрадь дней»: интерфейс. Данные — только на устройстве (см. db.js), бэкапы — зашифрованные (см. backup.js).
+// myDay: интерфейс. Данные — только на устройстве (см. db.js), бэкапы — зашифрованные (см. backup.js).
 import { store, raw, deleteEverything } from "./db.js";
 import * as vault from "./vault.js";
 import { snapshot, backupToBlob, backupToFolder, readBackup, restore, setBackupPassword, getBackupKey, folderSupported, folderState, pickFolder, listFolderBackups } from "./backup.js";
@@ -1431,7 +1431,7 @@ const ago=t=>{if(!t)return "никогда";const m=Math.round((Date.now()-t)/6e
 const plural=(n,a,b,c)=>{const t=n%10,h=n%100;return t===1&&h!==11?a:t>=2&&t<=4&&(h<12||h>14)?b:c};
 const mb=n=>n==null?"—":n<1048576?Math.max(1,Math.round(n/1024))+" КБ":n<1073741824?(n/1048576).toFixed(1)+" МБ":(n/1073741824).toFixed(2)+" ГБ";
 const fmtDate=t=>{const d=new Date(t);return d.getDate()+" "+MG[d.getMonth()]+" "+d.getFullYear()+", "+pad(d.getHours())+":"+pad(d.getMinutes())};
-const stampName=()=>{const d=new Date();return "tetrad-"+key(d)+"_"+pad(d.getHours())+pad(d.getMinutes())+".tetrad"};
+const stampName=()=>{const d=new Date();return "myday-"+key(d)+"_"+pad(d.getHours())+pad(d.getMinutes())+".myday"};
 const hasData=()=>Object.values(S.days).some(d=>!isEmpty(d));
 
 async function refreshBK(){
@@ -1532,8 +1532,8 @@ function renderBackup(){
   const s5=sec("Восстановить из бэкапа");
   const R=BK.restore;
   if(!R){
-    s5.append(el("p","bknote","Откройте файл .tetrad — с этого или другого устройства."));
-    const r=el("div","row");const fi=el("input");fi.type="file";fi.accept=".tetrad,application/octet-stream";fi.id="restoreIn";fi.className="sr";
+    s5.append(el("p","bknote","Откройте файл бэкапа (.myday, или .tetrad из прежних версий) — с этого или другого устройства."));
+    const r=el("div","row");const fi=el("input");fi.type="file";fi.accept=".myday,.tetrad,application/octet-stream";fi.id="restoreIn";fi.className="sr";
     fi.onchange=()=>{const f=fi.files[0];if(f){BK.restore={file:f,stage:"pw"};BK.rErr="";renderBackup();setTimeout(()=>$("rpw")?.focus(),0)}};
     btn(r,"Выбрать файл бэкапа",()=>fi.click());r.append(fi);s5.append(r);
   } else if(R.stage==="pw"){

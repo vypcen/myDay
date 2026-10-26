@@ -6,13 +6,13 @@
 <!-- Приложение не обращается ни к каким внешним серверам: это гарантирует политика ниже. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob: data:; font-src 'self'; connect-src 'self' blob: data:; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<title>Тетрадь дней</title>
+<title>myDay</title>
 <meta name="description" content="Календарь со свободным холстом для каждого дня. Все данные хранятся только на вашем устройстве.">
 <meta name="theme-color" content="#f3f4f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#10121b" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Тетрадь">
+<meta name="apple-mobile-web-app-title" content="myDay">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -89,7 +89,7 @@
 <div class="lock" id="lock" hidden>
   <form class="lockbox" id="lockForm" autocomplete="off">
     <img src="icons/icon.svg" alt="" width="56" height="56">
-    <h2>Тетрадь дней</h2>
+    <h2>myDay</h2>
     <p id="lockMsg">Введите PIN-код</p>
     <input class="inp" id="lockIn" type="password" autocomplete="current-password" aria-label="PIN-код">
     <button class="btn primary" type="submit" id="lockGo">Открыть</button>
