@@ -1,0 +1,18 @@
+// Настройка для Cloudflare Workers (проект «myday» в Workers & Pages, сборка из GitHub).
+// Статические файлы — из корня репозитория, кроме перечисленного в .assetsignore.
+// /api/* сначала попадает в worker/index.js (ссылки «Поделиться днём»).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "myday",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-19",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "r2_buckets": [
+    { "binding": "SHARES", "bucket_name": "myday-shares" }
+  ],
+  "observability": { "enabled": true }
+}

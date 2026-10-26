@@ -1,0 +1,11 @@
+# Что не выкладывать как статические файлы сайта
+.git
+.gitignore
+.assetsignore
+wrangler.jsonc
+node_modules
+worker
+functions
+lib
+prototype
+*.md
